@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "PowerShell(npm view vite-plugin-pwa version peerDependencies time.modified --json)",
+      "PowerShell(npm view fflate version)",
+      "PowerShell(npm view vitest version peerDependencies --json)",
+      "PowerShell(npm view workbox-precaching version)",
+      "PowerShell(foreach \\($p in 'vite-plugin-pwa','fflate','vitest','workbox-precaching','workbox-build','workbox-window'\\) { $t = npm view $p time --json | ConvertFrom-Json; $v = npm view $p version; \"$p $v $\\($t.$v\\)\" })",
+      "PowerShell($t = npm view vite-plugin-pwa time --json | ConvertFrom-Json; $t.PSObject.Properties | Where-Object { $_.Name -match '^1\\\\.' } | Select-Object -Last 4 | ForEach-Object { \"$\\($_.Name\\) $\\($_.Value\\)\" }; npm view vite-plugin-pwa@1 peerDependencies --json | Select-Object -Last 12; $t2 = npm view vitest time --json | ConvertFrom-Json; $t2.PSObject.Properties | Where-Object { $_.Name -match '^\\(4|5\\)\\\\.\\\\d+\\\\.\\\\d+$' } | Select-Object -Last 6 | ForEach-Object { \"$\\($_.Name\\) $\\($_.Value\\)\" })",
+      "PowerShell(node scripts/generate-fixtures.mjs)",
+      "PowerShell(npx vitest run 2>&1)",
+      "PowerShell(npx tsc -b 2>&1)",
+      "PowerShell(npx oxlint 2>&1)",
+      "PowerShell(npm install -D workbox-routing@7.4.1 2>&1)"
+    ]
+  }
+}

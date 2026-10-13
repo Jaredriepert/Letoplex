@@ -1,0 +1,73 @@
+@font-face {
+  font-family: 'Bangers';
+  src: url('./assets/fonts/Bangers-Regular.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+:root {
+  font-family: 'Bangers', 'Trebuchet MS', 'Segoe UI', sans-serif;
+  color: #2d2017;
+  background: #efe1cc;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: #efe1cc;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  font-family: 'Bangers', 'Trebuchet MS', 'Segoe UI', sans-serif;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.3), rgba(120,89,58,0.06)),
+    repeating-linear-gradient(
+      0deg,
+      rgba(122, 93, 65, 0.02),
+      rgba(122, 93, 65, 0.02) 2px,
+      transparent 2px,
+      transparent 5px
+    ),
+    linear-gradient(180deg, #f6eedf 0%, #e8d7b2 100%);
+  overscroll-behavior: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+#root {
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+h1,
+h2,
+h3,
+p {
+  margin-top: 0;
+}

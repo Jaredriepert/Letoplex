@@ -1,0 +1,87 @@
+{
+  "format": "graphic-adventure-book",
+  "version": 1,
+  "id": "mosslight-mystery",
+  "title": "Mosslight Mystery",
+  "author": "Test Import Kit",
+  "description": "A four-page test package with two chapters and a branch.",
+  "startPageId": "page-1",
+  "chapters": [
+    {
+      "id": "chapter-1",
+      "title": "The Hill",
+      "pages": [
+        {
+          "id": "page-1",
+          "title": "The Lantern on the Hill",
+          "image": "chapters/chapter-1/page-1.png",
+          "description": "A lantern flickers above the hill as the fog rolls in.",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "directions": {
+            "up": null,
+            "down": null,
+            "left": null,
+            "right": "page-2"
+          }
+        },
+        {
+          "id": "page-2",
+          "title": "The Fog Turns",
+          "image": "chapters/chapter-1/page-2.png",
+          "description": "The path bends and the mist begins to whisper.",
+          "position": {
+            "x": 1,
+            "y": 0
+          },
+          "directions": {
+            "up": null,
+            "down": null,
+            "left": "page-1",
+            "right": "page-3"
+          }
+        }
+      ]
+    },
+    {
+      "id": "chapter-2",
+      "title": "The Ruins",
+      "pages": [
+        {
+          "id": "page-3",
+          "title": "The Whispering Door",
+          "image": "chapters/chapter-2/page-3.png",
+          "description": "A hidden door glows softly beneath the roots of the woods.",
+          "position": {
+            "x": 0,
+            "y": 1
+          },
+          "directions": {
+            "up": "page-4",
+            "down": null,
+            "left": "page-2",
+            "right": null
+          }
+        },
+        {
+          "id": "page-4",
+          "title": "The Last Signal",
+          "image": "chapters/chapter-2/page-4.png",
+          "description": "A final signal flickers from the ruins beyond the trees.",
+          "position": {
+            "x": 1,
+            "y": 1
+          },
+          "directions": {
+            "up": null,
+            "down": "page-3",
+            "left": null,
+            "right": null
+          }
+        }
+      ]
+    }
+  ]
+}

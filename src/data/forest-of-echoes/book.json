@@ -1,0 +1,119 @@
+{
+  "format": "graphic-adventure-book",
+  "version": 1,
+  "id": "forest-of-echoes",
+  "title": "Forest of Echoes",
+  "author": "Story Forge Studio",
+  "description": "A short branching walk through a whispering forest.",
+  "startPageId": "intro",
+  "chapters": [
+    {
+      "id": "chapter-1",
+      "title": "The Lantern Gate",
+      "pages": [
+        {
+          "id": "intro",
+          "title": "The Lantern Gate",
+          "image": "chapters/chapter-1/intro.png",
+          "description": "A stone gate stands in the fog. A single lantern glows beside the path.",
+          "position": {
+            "x": 0,
+            "y": 0
+          },
+          "directions": {
+            "up": null,
+            "down": "river",
+            "left": null,
+            "right": "forest"
+          }
+        },
+        {
+          "id": "forest",
+          "title": "Whispering Trees",
+          "image": "chapters/chapter-1/forest.png",
+          "description": "The path opens into a forest. The branches sway as if listening.",
+          "position": {
+            "x": 1,
+            "y": 0
+          },
+          "directions": {
+            "up": null,
+            "down": "cabin",
+            "left": "intro",
+            "right": "bridge"
+          }
+        },
+        {
+          "id": "bridge",
+          "title": "The Broken Bridge",
+          "image": "chapters/chapter-1/bridge.png",
+          "description": "A cracked bridge crosses a deep ravine. A bell rings far away.",
+          "position": {
+            "x": 2,
+            "y": 0
+          },
+          "directions": {
+            "up": null,
+            "down": "altar",
+            "left": "forest",
+            "right": null
+          }
+        },
+        {
+          "id": "river",
+          "title": "Moonlit River",
+          "image": "chapters/chapter-1/river.png",
+          "description": "A silver river threads through the dark. A boat waits at the shore.",
+          "position": {
+            "x": 0,
+            "y": 1
+          },
+          "directions": {
+            "up": "intro",
+            "down": null,
+            "left": null,
+            "right": "altar"
+          }
+        },
+        {
+          "id": "cabin",
+          "title": "The Hollow Cabin",
+          "image": "chapters/chapter-1/cabin.png",
+          "description": "Inside the hut you find a map and a stack of old letters.",
+          "position": {
+            "x": 1,
+            "y": 1
+          },
+          "directions": {
+            "up": "forest",
+            "down": null,
+            "left": null,
+            "right": "altar"
+          }
+        }
+      ]
+    },
+    {
+      "id": "chapter-2",
+      "title": "The Ember Altar",
+      "pages": [
+        {
+          "id": "altar",
+          "title": "The Ember Altar",
+          "image": "chapters/chapter-2/altar.png",
+          "description": "A red ember rises from the stone. The story has only just begun.",
+          "position": {
+            "x": 2,
+            "y": 1
+          },
+          "directions": {
+            "up": "bridge",
+            "down": null,
+            "left": "river",
+            "right": null
+          }
+        }
+      ]
+    }
+  ]
+}
