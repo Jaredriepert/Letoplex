@@ -28,10 +28,12 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm test
+      - id: pages
+        uses: actions/configure-pages@v5
       - run: npm run build
         env:
-          # Project sites live at https://<user>.github.io/<repo>/
-          BASE_PATH: /${{ github.event.repository.name }}/
+          # Empty for a custom domain (served from /), "/<repo>" for https://<user>.github.io/<repo>/
+          BASE_PATH: ${{ steps.pages.outputs.base_path }}/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist
