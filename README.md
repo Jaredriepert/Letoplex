@@ -10,6 +10,7 @@ A local-first reader for illustrated, branching stories, built for phones. Reade
 - **Reader** with swipes, edge taps, direction arrows, pinch and double-tap zoom, a tap to hide controls, keyboard arrows, and dead-end feedback. Only the current page and its neighbours are loaded.
 - **Back button** steps back through pages, and a reload returns to the same page.
 - **Installable PWA**: home-screen install, full-screen reading, offline app shell, update prompt, and on Android, open/share `.gab` files into the app.
+- **Create (editor)**: build books from your pictures on a map grid, with branching links, chapters, checks, undo/redo, phone-size image optimisation, preview in the real reader, and export to `.gab`, the share sheet, or your library. Library books can be copied in for editing. See [docs/CREATING_BOOKS.md](docs/CREATING_BOOKS.md).
 
 ## Run locally
 
@@ -44,7 +45,10 @@ A book is a `book.json` plus images, zipped and renamed `.gab`. The format, vali
 | `src/book/package.ts` | Reading `.gab`/`.zip`/folders/links into a validated book + image blobs |
 | `src/storage/db.ts` | IndexedDB: books, assets, progress, share inbox |
 | `src/library/` | Library entries (bundled + stored) and image loading/unloading hooks |
-| `src/screens/` | Library, Chapters and Reader screens |
+| `src/screens/` | Library, Create, Chapters and Reader screens |
+| `src/editor/draft.ts` | Editor model and every editing operation, as pure (unit-tested) functions; draft checks; `book.json` output |
+| `src/editor/` (other) | Editor screen, map, page/book/check panels, image optimisation, draft storage and export |
+| `src/book/zipWriter.ts` | Streams stored images into a standard (zip64-capable) `.gab` without loading them into memory |
 | `src/components/Sheets.tsx` | Import, error, duplicate, link and book-action sheets; toasts |
 | `src/sw.ts`, `src/pwa.ts` | Service worker (offline + share target) and page-side PWA helpers |
 | `src/data/forest-of-echoes/` | The bundled sample book, in the canonical format |

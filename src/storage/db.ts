@@ -5,9 +5,10 @@
 // This module is also imported by the service worker, so it must not touch
 // `window` or the DOM.
 import type { Book } from '../book/schema'
+import { DRAFT_KEY_PREFIX, type Draft } from '../editor/draft'
 
 const DB_NAME = 'graphic-adventure'
-const DB_VERSION = 1
+const DB_VERSION = 2
 
 export type StoredBook = {
   book: Book
@@ -44,13 +45,18 @@ const promisify = <T>(request: IDBRequest<T>) =>
 const openDb = () => {
   dbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION)
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result
-      db.createObjectStore('books')
-      // Keyed by [bookId, path] so a whole book's assets form one key range.
-      db.createObjectStore('assets')
-      db.createObjectStore('progress')
-      db.createObjectStore('inbox', { keyPath: 'id', autoIncrement: true })
+      if (event.oldVersion < 1) {
+        db.createObjectStore('books')
+        // Keyed by [storageKey, path] so one book's (or draft's) images form one key range.
+        db.createObjectStore('assets')
+        db.createObjectStore('progress')
+        db.createObjectStore('inbox', { keyPath: 'id', autoIncrement: true })
+      }
+      if (event.oldVersion < 2) {
+        db.createObjectStore('drafts')
+      }
     }
     request.onsuccess = () => {
       const db = request.result
@@ -69,7 +75,7 @@ const openDb = () => {
   return dbPromise
 }
 
-type StoreName = 'books' | 'assets' | 'progress' | 'inbox'
+type StoreName = 'books' | 'assets' | 'progress' | 'inbox' | 'drafts'
 
 const withStore = async <T>(
   names: StoreName | StoreName[],
@@ -170,14 +176,20 @@ export const deleteBook = (bookId: string) =>
  */
 export const removeOrphanAssets = () =>
   withStore(
-    ['books', 'assets'],
+    ['books', 'assets', 'drafts'],
     'readwrite',
     (tx) =>
       new Promise<number>((resolve, reject) => {
         const booksRequest = tx.objectStore('books').getAll() as IDBRequest<StoredBook[]>
+        const draftsRequest = tx.objectStore('drafts').getAllKeys()
         booksRequest.onerror = () => reject(booksRequest.error)
-        booksRequest.onsuccess = () => {
-          const live = new Set(booksRequest.result.map(storageKeyOf))
+        draftsRequest.onerror = () => reject(draftsRequest.error)
+        // Requests in one transaction complete in order, so drafts are ready here.
+        draftsRequest.onsuccess = () => {
+          const live = new Set([
+            ...booksRequest.result.map(storageKeyOf),
+            ...draftsRequest.result.map((draftId) => DRAFT_KEY_PREFIX + String(draftId)),
+          ])
           const assets = tx.objectStore('assets')
           let removed = 0
           const cursorRequest = assets.openKeyCursor()
@@ -199,6 +211,36 @@ export const removeOrphanAssets = () =>
         }
       }),
   )
+
+/** Paths of every asset stored under a key (no image data is loaded). */
+export const listAssetPaths = (storageKey: string) =>
+  withStore('assets', 'readonly', async (tx) => {
+    const keys = await promisify(tx.objectStore('assets').getAllKeys(assetRange(storageKey)))
+    return keys.map((key) => String((key as IDBValidKey[])[1]))
+  })
+
+export const deleteAsset = (storageKey: string, path: string) =>
+  withStore('assets', 'readwrite', (tx) => {
+    tx.objectStore('assets').delete([storageKey, path])
+  })
+
+// ---------- Drafts ----------
+
+export const listDrafts = () => withStore('drafts', 'readonly', (tx) => promisify(tx.objectStore('drafts').getAll() as IDBRequest<Draft[]>))
+
+export const getDraft = (draftId: string) =>
+  withStore('drafts', 'readonly', (tx) => promisify(tx.objectStore('drafts').get(draftId) as IDBRequest<Draft | undefined>))
+
+export const saveDraft = (draft: Draft) =>
+  withStore('drafts', 'readwrite', (tx) => {
+    tx.objectStore('drafts').put(draft, draft.id)
+  })
+
+export const deleteDraft = (draftId: string) =>
+  withStore(['drafts', 'assets'], 'readwrite', (tx) => {
+    tx.objectStore('drafts').delete(draftId)
+    tx.objectStore('assets').delete(assetRange(DRAFT_KEY_PREFIX + draftId))
+  })
 
 export const loadAllProgress = () =>
   withStore('progress', 'readonly', async (tx) => {

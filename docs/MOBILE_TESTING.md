@@ -19,6 +19,7 @@ Open the `Network:` address Vite prints (e.g. `http://192.168.1.20:5173`) on the
 - `npm test`: schema, migration, validation and package-reading unit tests.
 - A headless phone-sized Chrome run was used during development to check swipes, edge taps, zoom, back button, reload, import, duplicates, errors, removal, offline loading and share-target handling.
 - A 602 MB, 300-page stress book was imported the same way. Peak JavaScript memory stayed around 5 MB. Cancel, a simulated full device, and a tab killed mid-import all left storage consistent.
+- The editor was driven the same way at desktop and phone sizes: creating a book from pictures (including optimising a 3000×4000 photo), branching, linking, undo/redo, preview, export, re-import, add to library, and editing the sample. The exported `.gab` also opens with Windows' built-in unzip.
 - None of this is a substitute for the device checks below; it can't reproduce Safari, real touch hardware, or phone storage speeds. Expect large imports to take noticeably longer on a phone than on a desktop.
 
 ## Real-device checklist
@@ -49,6 +50,13 @@ Run on a current **iPhone (Safari)** and a current **Android phone (Chrome)**. T
 | 18b | Lock the phone or switch apps mid-import, then come back: the import either finished, or the book isn't in the library and Storage shows no leftover space used after reopening | | |
 | 18c | Import a book bigger than the phone's free space: "Not enough space" appears before saving; *Free up space* → remove a book → *Continue adding* works | | |
 | 19 | Remove a book from ⋯ → it's gone after reopening the app | | |
+| E1 | Create → New book → Add pictures from the photo library / Files (several at once); camera photos trigger "Optimise for phones?" | | |
+| E2 | Map: tap tiles, tap + to add, tap connectors to link; page editor opens full screen and closes | | |
+| E3 | Page editor: text fields don't zoom the page; selects are usable; Replace picture works | | |
+| E4 | Switch apps mid-edit, come back / reopen the app: the draft is saved | | |
+| E5 | Preview → turn pages → Back to editor (menu and Android back button) | | |
+| E6 | Export → Share… (sends a .gab via Messages/email/Save to Files) and Download .gab | | |
+| E7 | Export → Add to my library → reads correctly; edit again and Replace keeps reading progress | | |
 | 20 | Private/incognito mode: app shows the "isn't letting the app save books" notice instead of failing silently | | |
 
 ## Known platform limits

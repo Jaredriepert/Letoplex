@@ -10,6 +10,8 @@ type Props = {
   onNavigate: (pageId: string) => void
   onOpenChapters: () => void
   onOpenLibrary: () => void
+  /** Set when previewing a draft: replaces Chapters/Library with "Back to editor". */
+  onExitPreview?: () => void
 }
 
 type Zoom = { scale: number; x: number; y: number }
@@ -89,7 +91,7 @@ function Chevron({ direction }: { direction: Direction }) {
   )
 }
 
-export function Reader({ entry, pageId, onNavigate, onOpenChapters, onOpenLibrary }: Props) {
+export function Reader({ entry, pageId, onNavigate, onOpenChapters, onOpenLibrary, onExitPreview }: Props) {
   const { book } = entry
   const page = book.pages[pageId]
   const chapterIndex = chapterIndexOf(book, pageId)
@@ -413,7 +415,10 @@ export function Reader({ entry, pageId, onNavigate, onOpenChapters, onOpenLibrar
 
       <div className="reader-topbar">
         <div className="page-overlay-banner">
-          <span>{chapter?.title}</span>
+          <span>
+            {onExitPreview && <b className="preview-pill">Preview</b>}
+            {chapter?.title}
+          </span>
           <h2>{page.title}</h2>
         </div>
 
@@ -432,9 +437,15 @@ export function Reader({ entry, pageId, onNavigate, onOpenChapters, onOpenLibrar
           {menuOpen && (
             <div className="menu-dropdown" role="menu">
               <div className="menu-book-name">{book.title}</div>
-              <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onOpenChapters() }}>
-                Chapters
-              </button>
+              {onExitPreview ? (
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onExitPreview() }}>
+                  Back to editor
+                </button>
+              ) : (
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onOpenChapters() }}>
+                  Chapters
+                </button>
+              )}
               <button type="button" role="menuitem" onClick={goToChapterStart}>
                 Restart this chapter
               </button>
@@ -444,9 +455,11 @@ export function Reader({ entry, pageId, onNavigate, onOpenChapters, onOpenLibrar
               <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setCoachOpen(true) }}>
                 How to read
               </button>
-              <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onOpenLibrary() }}>
-                Library
-              </button>
+              {!onExitPreview && (
+                <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onOpenLibrary() }}>
+                  Library
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -455,7 +468,10 @@ export function Reader({ entry, pageId, onNavigate, onOpenChapters, onOpenLibrar
       {!isZoomed &&
         available.map((direction) => (
           <PressButton
-            key={direction}
+            // Keyed by page too, so every available arrow re-plays its pulse on
+            // arrival. Keyed by direction alone, arrows shared with the previous
+            // page kept their element and only new ones pulsed.
+            key={`${pageId}-${direction}`}
             className={`direction-hint hint-${direction}`}
             aria-label={`${ARROW_LABEL[direction]}: ${book.pages[page.directions[direction]!]?.title ?? ''}`}
             onPress={() => move(direction)}
@@ -467,8 +483,8 @@ export function Reader({ entry, pageId, onNavigate, onOpenChapters, onOpenLibrar
       {available.length === 0 && chromeVisible && (
         <div className="end-card">
           <strong>The end of this path</strong>
-          <button type="button" className="primary-button" onClick={onOpenChapters}>
-            Chapters
+          <button type="button" className="primary-button" onClick={onExitPreview ?? onOpenChapters}>
+            {onExitPreview ? 'Back to editor' : 'Chapters'}
           </button>
         </div>
       )}

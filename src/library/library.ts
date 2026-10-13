@@ -33,7 +33,7 @@ const bundledSource = (base: string, urls: Record<string, string>): AssetSource 
   },
 })
 
-const storedSource = (storageKey: string): AssetSource => ({
+export const storedSource = (storageKey: string): AssetSource => ({
   load: async (path) => {
     const blob = await getAsset(storageKey, path)
     if (!blob) {

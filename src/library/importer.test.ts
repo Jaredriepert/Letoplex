@@ -2,7 +2,8 @@ import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { BookPackage, PackageFile } from '../book/package'
 import { parseBook, type Book } from '../book/schema'
-import { deleteBook, getAsset, listBooks, putAsset, removeOrphanAssets, storageKeyOf } from '../storage/db'
+import { createDraft, draftStorageKey } from '../editor/draft'
+import { deleteBook, deleteDraft, getAsset, listBooks, putAsset, removeOrphanAssets, saveDraft, storageKeyOf } from '../storage/db'
 import { checkSpace, ImportCancelled, savePackage } from './importer'
 
 const makeBook = (id: string, images: string[]): Book =>
@@ -94,6 +95,17 @@ describe('removeOrphanAssets', () => {
     expect(await removeOrphanAssets()).toBe(2)
     expect(await getAsset('crashed~1', 'b.png')).toBeUndefined()
     expect(await assetText(storageKeyOf(saved), 'a.png')).toBe('x:a.png')
+  })
+
+  it('keeps images that belong to an editor draft', async () => {
+    const draft = createDraft('Draft book')
+    await saveDraft(draft)
+    await putAsset(draftStorageKey(draft.id), 'images/a.png', new Blob(['draft image']))
+    await putAsset('draft~deleted-draft', 'images/a.png', new Blob(['orphan']))
+    expect(await removeOrphanAssets()).toBe(1)
+    expect(await assetText(draftStorageKey(draft.id), 'images/a.png')).toBe('draft image')
+    await deleteDraft(draft.id)
+    expect(await getAsset(draftStorageKey(draft.id), 'images/a.png')).toBeUndefined()
   })
 
   it('deleting a book removes its images', async () => {

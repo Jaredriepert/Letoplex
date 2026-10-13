@@ -21,7 +21,7 @@ This document is the project-level context for maintainers and AI agents. It des
 
 - No cloud library, accounts, synchronization service, or backend is currently in scope.
 - The app is a React web app installable as a PWA, not a native iOS or Android application. Native packaging is a later decision, not an existing capability.
-- Do not make the reader's core flow depend on an editor being present.
+- Do not make the reader's core flow depend on the editor. The reader only imports `.gab` packages and never needs drafts.
 - Persistence, offline install and on-demand image loading are implemented and covered by automated checks, but have **not yet passed the real-device checklist** in [docs/MOBILE_TESTING.md](docs/MOBILE_TESTING.md). Don't describe them as device-verified until that's done.
 
 ## User Experience
@@ -65,7 +65,8 @@ Not implemented or not yet verified:
 
 - The real-device checklist in [docs/MOBILE_TESTING.md](docs/MOBILE_TESTING.md) hasn't been run. Behaviour was checked in a phone-sized headless Chrome, not on Safari or real hardware.
 - Large-book import was stress-tested on desktop Chrome only (602 MB). Phone import speed, and behaviour when the OS suspends a backgrounded tab mid-import, still need device checks.
-- A book editor, package export flow, or native wrapper.
+- The editor hasn't had real-device checks (items E1–E7 in the testing doc), especially photo-library picking and the share sheet on iOS.
+- A native wrapper.
 
 ## Book Package and Data Model
 
@@ -99,7 +100,7 @@ Book JSON image paths should be relative to the package root. Page IDs must be u
 
 ## Recommended Roadmap
 
-> **Status (Oct 2026):** Phase 0 is done. Phase 1 is implemented, but its real-device exit check is still outstanding. Phase 4's PWA items are implemented early because they were the main blocker for phone users; the native-wrapper decision is still open.
+> **Status (Oct 2026):** Phase 0 is done. Phase 1 is implemented, but its real-device exit check is still outstanding. Phase 2's editor MVP is built and passes its exit criteria in automated browser tests (create → validate → preview → export → re-import); device checks are pending. Undo/redo, one Phase 3 item, came early. Phase 4's PWA items are implemented early because they were the main blocker for phone users; the native-wrapper decision is still open.
 
 ### Phase 0: Stabilize the book contract and prove import
 
@@ -137,9 +138,11 @@ Favor a desktop-oriented grid/canvas workflow, while keeping basic navigation an
 
 **Exit criteria:** an author can create a small branching book, pass validation, preview every route, export it, and import that export into the reader with images and links intact.
 
+**As built:** the editor is a separate route reached from the **Create** tab, open on phones as well as computers. Its model is the reader's `Book` plus draft metadata, and every edit is a pure function in [src/editor/draft.ts](src/editor/draft.ts). Export runs the real `parseBook` over the output, so the editor can't produce a book the reader rejects. Drafts and their images live in IndexedDB (`drafts` store; images under `draft~<id>` keys, which orphan cleanup treats as live). The editor is described for authors in [docs/CREATING_BOOKS.md](docs/CREATING_BOOKS.md).
+
 ### Phase 3: Improve authoring and sharing
 
-- Add undo/redo, keyboard controls, duplicate/reorder tools, and clearer branch visualization based on actual author needs.
+- ~~Undo/redo~~ (done) and basic keyboard controls (done). Still open: duplicate/reorder tools, multi-select, and clearer branch visualisation (e.g. drawn arrows for long-distance links) based on actual author needs.
 - Add package metadata and compatibility handling without breaking older books.
 - Consider optional share workflows only after local package round-tripping is solid.
 

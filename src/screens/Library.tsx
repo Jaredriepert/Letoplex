@@ -15,6 +15,27 @@ type Props = {
   hiddenSampleCount: number
   onRestoreSamples: () => void
   onManageStorage: () => void
+  onSwitchTab: (tab: HomeTab) => void
+}
+
+export type HomeTab = 'library' | 'create'
+
+/** Switch between reading (My Books) and writing (Create). */
+export function HomeTabs({ active, onSwitch }: { active: HomeTab; onSwitch: (tab: HomeTab) => void }) {
+  return (
+    <nav className="home-tabs" aria-label="Sections">
+      {(
+        [
+          ['library', 'My Books'],
+          ['create', 'Create'],
+        ] as Array<[HomeTab, string]>
+      ).map(([id, label]) => (
+        <button key={id} type="button" className={active === id ? 'is-active' : ''} aria-current={active === id} onClick={() => active !== id && onSwitch(id)}>
+          {label}
+        </button>
+      ))}
+    </nav>
+  )
 }
 
 function BookCard({
@@ -75,9 +96,11 @@ export function Library({
   hiddenSampleCount,
   onRestoreSamples,
   onManageStorage,
+  onSwitchTab,
 }: Props) {
   return (
     <div className="library-screen">
+      <HomeTabs active="library" onSwitch={onSwitchTab} />
       <header className="library-header">
         <div>
           <p className="section-label">Library</p>

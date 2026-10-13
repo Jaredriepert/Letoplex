@@ -235,12 +235,14 @@ export function BookActionsSheet({
   onClose,
   onResetProgress,
   onRemove,
+  onEdit,
 }: {
   entry: LibraryEntry
   hasProgress: boolean
   onClose: () => void
   onResetProgress: () => void
   onRemove: () => void
+  onEdit: () => void
 }) {
   const [confirmingRemove, setConfirmingRemove] = useState(false)
   const { book } = entry
@@ -257,6 +259,11 @@ export function BookActionsSheet({
         <button type="button" className="secondary-button wide" disabled={!hasProgress} onClick={onResetProgress}>
           Start over
           <small>Forget reading progress and lock later chapters again</small>
+        </button>
+
+        <button type="button" className="secondary-button wide" onClick={onEdit}>
+          Edit in Create
+          <small>{entry.builtin ? 'Make your own copy to change' : 'Open a copy in the editor; the library copy stays until you update it'}</small>
         </button>
 
         {confirmingRemove ? (
@@ -290,6 +297,31 @@ export function BusyOverlay({ message }: { message: string }) {
       <div className="busy-card">
         <span className="spinner" aria-hidden="true" />
         {message}
+      </div>
+    </div>
+  )
+}
+
+export type ProgressInfo = { heading: string; done: number; total: number; unit?: string; onCancel?: () => void; cancelling?: boolean }
+
+/** General progress card for long jobs (adding pictures, exporting). */
+export function ProgressOverlay({ progress }: { progress: ProgressInfo }) {
+  const percent = progress.total > 0 ? Math.min(100, Math.round((progress.done / progress.total) * 100)) : 0
+  return (
+    <div className="busy-overlay">
+      <div className="busy-card progress-card" role="status" aria-live="polite">
+        <strong>{progress.heading}</strong>
+        <div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+          <div className="progress-fill" style={{ width: `${percent}%` }} />
+        </div>
+        <span className="progress-detail">
+          {progress.cancelling ? 'Cancelling…' : `${progress.done} of ${progress.total} ${progress.unit ?? ''}`.trim()}
+        </span>
+        {progress.onCancel && (
+          <button type="button" className="link-button" onClick={progress.onCancel} disabled={progress.cancelling}>
+            Cancel
+          </button>
+        )}
       </div>
     </div>
   )

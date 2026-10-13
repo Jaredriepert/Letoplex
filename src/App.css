@@ -88,6 +88,45 @@
   font-size: 0.9rem;
 }
 
+.home-tabs {
+  display: inline-flex;
+  margin-bottom: 14px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 2px solid var(--line);
+  background: rgba(255, 249, 240, 0.7);
+}
+
+.home-tabs button {
+  min-height: 40px;
+  padding: 0 18px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  font-family: inherit;
+  font-size: 1.05rem;
+  letter-spacing: 0.05em;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.home-tabs button.is-active {
+  background: var(--tan);
+  color: var(--ink);
+}
+
+.draft-card-meta {
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.create-tips {
+  margin: 0 0 18px;
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  color: var(--ink-soft);
+}
+
 .install-hint {
   display: flex;
   align-items: center;
@@ -215,6 +254,9 @@ button:disabled {
   place-items: center;
   border-radius: 12px;
   background: transparent;
+  /* Arrow characters: use a symbol font, never colour emoji. */
+  font-family: 'Segoe UI Symbol', 'Trebuchet MS', 'Apple Symbols', sans-serif;
+  font-variant-emoji: text;
 }
 
 .link-button {
@@ -549,6 +591,17 @@ button:disabled {
   letter-spacing: 0.14em;
   font-size: 0.75rem;
   text-shadow: 1px 1px 0 rgba(24, 15, 10, 0.5);
+}
+
+.preview-pill {
+  display: inline-block;
+  margin-right: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--rust);
+  color: #fffaf2;
+  font-weight: 400;
+  text-shadow: none;
 }
 
 .page-overlay-banner h2 {
@@ -1007,6 +1060,11 @@ button:disabled {
 
 /* In the reader, keep toasts clear of the bottom arrow and end card. */
 .is-reading .toast {
+  bottom: calc(var(--safe-bottom) + 84px);
+}
+
+/* …and clear of the editor's selection bar. */
+.app-shell:has(.has-selection-bar) .toast {
   bottom: calc(var(--safe-bottom) + 84px);
 }
 

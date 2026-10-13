@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { readArchive, readFromUrl, readPickedFiles, type BookPackage, type ImportResult } from './book/package'
 import { chapterIndexOf, type Book, type Issue } from './book/schema'
@@ -8,14 +8,19 @@ import {
   ConfirmLinkSheet,
   DuplicateSheet,
   ImportSheet,
+  ProgressOverlay,
   ReportSheet,
   SaveProgressOverlay,
   SpaceSheet,
   StorageSheet,
   Toast,
+  type ProgressInfo,
   type SaveStatus,
   type ToastMessage,
 } from './components/Sheets'
+import { createDraft, type Draft } from './editor/draft'
+import { Editor } from './editor/Editor'
+import { draftEntry, draftFromLibraryBook, packageDraft } from './editor/service'
 import { checkSpace, holdWakeLock, ImportCancelled, savePackage } from './library/importer'
 import {
   builtinEntries,
@@ -29,12 +34,16 @@ import {
 import { readHiddenBuiltins, writeHiddenBuiltins } from './storage/prefs'
 import { registerServiceWorker, requestPersistentStorage } from './pwa'
 import { Chapters } from './screens/Chapters'
-import { Library } from './screens/Library'
+import { Create } from './screens/Create'
+import { Library, type HomeTab } from './screens/Library'
 import { Reader } from './screens/Reader'
 import {
   clearProgress,
   deleteBook,
+  deleteDraft,
+  getDraft,
   loadAllProgress,
+  saveDraft,
   removeOrphanAssets,
   saveProgress,
   takeInbox,
@@ -45,6 +54,9 @@ type Route =
   | { screen: 'library' }
   | { screen: 'chapters'; bookId: string }
   | { screen: 'reader'; bookId: string; pageId: string }
+  | { screen: 'create' }
+  | { screen: 'editor'; draftId: string }
+  | { screen: 'preview'; draftId: string; pageId: string }
 
 /** A validated package waiting to be saved, with its final id and title. */
 type PendingImport = { pkg: BookPackage; issues: Issue[]; book: Book }
@@ -60,6 +72,7 @@ type SheetState =
   | null
 
 const LIBRARY: Route = { screen: 'library' }
+const CREATE: Route = { screen: 'create' }
 const SAMPLE_PACKAGE_URL = `${import.meta.env.BASE_URL}samples/mosslight-mystery.gab`
 
 /** Validates a route restored from `history.state` (it survives reloads). */
@@ -76,6 +89,15 @@ const readRoute = (state: unknown): Route | null => {
   }
   if (route.screen === 'reader' && typeof route.bookId === 'string' && typeof route.pageId === 'string') {
     return { screen: 'reader', bookId: route.bookId, pageId: route.pageId }
+  }
+  if (route.screen === 'create') {
+    return CREATE
+  }
+  if (route.screen === 'editor' && typeof route.draftId === 'string') {
+    return { screen: 'editor', draftId: route.draftId }
+  }
+  if (route.screen === 'preview' && typeof route.draftId === 'string' && typeof route.pageId === 'string') {
+    return { screen: 'preview', draftId: route.draftId, pageId: route.pageId }
   }
   return null
 }
@@ -111,7 +133,7 @@ function App() {
     progressRef.current = progress
   }, [entries, progress])
 
-  const routeBookId = route.screen === 'library' ? null : route.bookId
+  const routeBookId = route.screen === 'chapters' || route.screen === 'reader' ? route.bookId : null
   const entry = routeBookId ? entries.find((item) => item.book.id === routeBookId) ?? null : null
   // A route restored from history can name a page that no longer exists
   // (e.g. the book was replaced); fall back to the start page.
@@ -173,8 +195,52 @@ function App() {
     document.title = entry ? `${entry.book.title} · Graphic Adventure` : 'Graphic Adventure'
   }, [entry])
 
+  // ---------- Drafts and preview ----------
+
+  const [previewDraft, setPreviewDraft] = useState<Draft | null>(null)
+  const previewEntry = useMemo(() => (previewDraft ? draftEntry(previewDraft) : null), [previewDraft])
+  /** True when the preview was opened from the editor in this session (so Back returns there). */
+  const previewFromEditorRef = useRef(false)
+  const [draftsVersion, setDraftsVersion] = useState(0)
+  const [appProgress, setAppProgress] = useState<ProgressInfo | null>(null)
+
+  // A preview restored by a reload needs its draft loaded.
+  useEffect(() => {
+    if (route.screen !== 'preview' || previewDraft?.id === route.draftId) {
+      return undefined
+    }
+    let cancelled = false
+    getDraft(route.draftId)
+      .then((draft) => {
+        if (cancelled) return
+        if (draft) setPreviewDraft(draft)
+        else navigate(CREATE, { replace: true })
+      })
+      .catch(() => !cancelled && navigate(CREATE, { replace: true }))
+    return () => {
+      cancelled = true
+    }
+  }, [route, previewDraft, navigate])
+
+  const openPreview = async (draftId: string, pageId: string) => {
+    const draft = await getDraft(draftId)
+    if (!draft) return
+    setPreviewDraft(draft)
+    previewFromEditorRef.current = true
+    navigate({ screen: 'preview', draftId, pageId })
+  }
+
+  const exitPreview = (draftId: string) => {
+    if (previewFromEditorRef.current) {
+      previewFromEditorRef.current = false
+      window.history.back()
+    } else {
+      navigate({ screen: 'editor', draftId }, { replace: true })
+    }
+  }
+
   // Match the phone's status bar to the dark reading stage or the paper screens.
-  const themeColor = route.screen === 'reader' && entry ? '#2a211b' : '#efe1cc'
+  const themeColor = (route.screen === 'reader' && entry) || route.screen === 'preview' ? '#2a211b' : '#efe1cc'
   useEffect(() => {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', themeColor)
   }, [themeColor])
@@ -393,9 +459,103 @@ function App() {
 
   const openReader = (bookId: string, pageId: string) => navigate({ screen: 'reader', bookId, pageId })
 
+  // ---------- Create ----------
+
+  const switchTab = (tab: HomeTab) => navigate(tab === 'create' ? CREATE : LIBRARY, { replace: true })
+
+  const startNewDraft = async () => {
+    try {
+      const draft = createDraft()
+      await saveDraft(draft)
+      navigate({ screen: 'editor', draftId: draft.id })
+    } catch (error) {
+      setSheet({ kind: 'report', title: "A new draft couldn't be created", issues: [{ level: 'error', message: errorMessage(error) }] })
+    }
+  }
+
+  /** Opens a library book (or the sample) in the editor as a new draft. */
+  const copyToDraft = async (target: LibraryEntry) => {
+    setSheet(null)
+    setAppProgress({ heading: `Copying “${target.book.title}” into Create`, done: 0, total: 1, unit: 'pictures' })
+    try {
+      const draft = await draftFromLibraryBook(target, (done, total) => setAppProgress((value) => (value ? { ...value, done, total } : value)))
+      setDraftsVersion((version) => version + 1)
+      navigate({ screen: 'editor', draftId: draft.id })
+    } catch (error) {
+      setSheet({
+        kind: 'report',
+        title: "The book couldn't be opened for editing",
+        issues: [{ level: 'error', message: isQuotaError(error) ? 'There isn’t enough free storage on this device.' : errorMessage(error) }],
+      })
+    } finally {
+      setAppProgress(null)
+    }
+  }
+
+  const removeDraft = async (draftId: string) => {
+    try {
+      await deleteDraft(draftId)
+      setDraftsVersion((version) => version + 1)
+      if (route.screen === 'editor' || route.screen === 'preview') {
+        navigate(CREATE, { replace: true })
+      }
+      showToast('Draft deleted')
+    } catch (error) {
+      setSheet({ kind: 'report', title: "The draft couldn't be deleted", issues: [{ level: 'error', message: errorMessage(error) }] })
+    }
+  }
+
   // ---------- Render ----------
 
   const renderScreen = () => {
+    if (route.screen === 'create') {
+      return (
+        <Create
+          refreshKey={draftsVersion}
+          onSwitchTab={switchTab}
+          onNewDraft={() => void startNewDraft()}
+          onCopySample={() => builtinEntries[0] && void copyToDraft(builtinEntries[0])}
+          onOpenDraft={(draftId) => navigate({ screen: 'editor', draftId })}
+          onDeleteDraft={(draftId) => void removeDraft(draftId)}
+        />
+      )
+    }
+
+    if (route.screen === 'editor') {
+      return (
+        <Editor
+          key={route.draftId}
+          draftId={route.draftId}
+          onBack={() => navigate(CREATE)}
+          onPreview={(draftId, pageId) => void openPreview(draftId, pageId)}
+          onAddToLibrary={(draft) => void runImport(() => packageDraft(draft))}
+          onDeleteDraft={(draftId) => void removeDraft(draftId)}
+          showToast={showToast}
+        />
+      )
+    }
+
+    if (route.screen === 'preview') {
+      if (!previewEntry || previewDraft?.id !== route.draftId) {
+        return null
+      }
+      const pageId = previewEntry.book.pages[route.pageId] ? route.pageId : previewEntry.book.startPageId
+      if (!previewEntry.book.pages[pageId]) {
+        return null
+      }
+      return (
+        <Reader
+          entry={previewEntry}
+          pageId={pageId}
+          // Page turns replace the history entry, so Back returns to the editor.
+          onNavigate={(next) => navigate({ screen: 'preview', draftId: route.draftId, pageId: next }, { replace: true })}
+          onOpenChapters={() => exitPreview(route.draftId)}
+          onOpenLibrary={() => exitPreview(route.draftId)}
+          onExitPreview={() => exitPreview(route.draftId)}
+        />
+      )
+    }
+
     if (route.screen === 'library' || !entry) {
       // While a restored deep link waits for the library, show plain paper.
       if (route.screen !== 'library' && libraryLoading) {
@@ -419,6 +579,7 @@ function App() {
           hiddenSampleCount={hiddenBuiltinCount}
           onRestoreSamples={restoreBuiltins}
           onManageStorage={() => setSheet({ kind: 'storage', pending: null })}
+          onSwitchTab={switchTab}
         />
       )
     }
@@ -495,6 +656,7 @@ function App() {
             onClose={() => setSheet(null)}
             onResetProgress={() => void resetProgress(target.book.id)}
             onRemove={() => void removeBook(target.book.id)}
+            onEdit={() => void copyToDraft(target)}
           />
         )
       }
@@ -526,11 +688,12 @@ function App() {
   }
 
   return (
-    <div className={`app-shell ${route.screen === 'reader' && entry ? 'is-reading' : ''}`}>
+    <div className={`app-shell ${(route.screen === 'reader' && entry) || route.screen === 'preview' ? 'is-reading' : ''}`}>
       {renderScreen()}
       {renderSheet()}
       {busy && <BusyOverlay message={busy} />}
       {saveStatus && <SaveProgressOverlay status={saveStatus} onCancel={cancelSave} />}
+      {appProgress && <ProgressOverlay progress={appProgress} />}
       {/* Toasts would cover a sheet's buttons, so they wait until it closes. */}
       {toast && !sheet && <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />}
     </div>
