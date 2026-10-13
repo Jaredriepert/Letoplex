@@ -111,6 +111,16 @@
   color: var(--ink-soft);
 }
 
+.library-empty {
+  margin: 8px 0 0;
+  padding: 28px 16px;
+  text-align: center;
+  border: 3px dashed var(--line);
+  border-radius: 20px;
+  color: var(--ink-soft);
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+}
+
 .library-footnote {
   margin: 28px 0 0;
   text-align: center;
@@ -882,6 +892,84 @@ button:disabled {
   border: 3px solid var(--line);
   font-size: 1.2rem;
   letter-spacing: 0.04em;
+}
+
+.progress-card {
+  width: min(360px, calc(100% - 32px));
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.progress-card strong {
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.progress-track {
+  height: 14px;
+  border-radius: 999px;
+  background: rgba(101, 78, 54, 0.15);
+  border: 2px solid var(--line);
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--tan);
+  border-right: 2px solid rgba(67, 48, 33, 0.35);
+  transition: width 0.2s ease-out;
+}
+
+.progress-detail {
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-size: 0.85rem;
+  letter-spacing: 0;
+  color: var(--ink-soft);
+}
+
+.storage-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.storage-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 2px solid var(--line);
+  border-radius: 14px;
+}
+
+.storage-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.storage-row > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.storage-row strong {
+  font-weight: 400;
+  font-size: 1.1rem;
+  letter-spacing: 0.03em;
+  overflow-wrap: anywhere;
+}
+
+.storage-row span {
+  font-family: 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
 }
 
 .spinner {

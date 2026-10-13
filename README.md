@@ -25,7 +25,8 @@ npm run dev:phone    # also reachable from a phone on the same Wi-Fi
 | `npm run preview` / `preview:phone` | Serve the production build |
 | `npm test` | Unit tests (schema, validation, package reading) |
 | `npm run lint` | oxlint |
-| `npm run fixtures` | Regenerate sample/test book images, the test `.gab`, and app icons |
+| `npm run fixtures` | Regenerate sample/test book images and the test `.gab` |
+| `npm run icons` | Rebuild all app icon sizes from `design/icon-source.png` (Windows PowerShell) |
 
 ## Share it with other people
 

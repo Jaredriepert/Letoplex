@@ -96,7 +96,13 @@ To make a `.gab` from the folder above, zip the **contents** of `my-book/` (or t
 - Paths are relative to the package root and use `/`. `./` prefixes and `\` separators are normalized.
 - Absolute paths, URLs (`https:`, `data:`), and `..` segments are rejected.
 - Supported types: PNG, JPEG, WebP, GIF, AVIF, SVG.
-- Portrait images around 1080×1920 suit phones. Keep individual images under 64 MB and the whole package under 1 GB. In practice, a few MB per page is plenty.
+- Portrait images around 1080×1920 suit phones. Each image must be under 64 MB; in practice a few hundred KB per page (WebP/AVIF/JPEG) is plenty, and makes big books fit on phones.
+
+### Package size
+
+There is no fixed limit on package size. Large archives over 4 GB (zip64) are supported. Importing reads the archive's index and copies one image at a time, so a multi-GB book needs very little memory. The limit is the free browser storage on the device: before saving, the app compares the book's size with what the browser reports as free and warns if it won't fit.
+
+When zipping, **store** images without compression ("store" / level 0). Images are already compressed, so deflating them saves almost nothing and slows imports. Deflated entries still work.
 
 ## Validation
 

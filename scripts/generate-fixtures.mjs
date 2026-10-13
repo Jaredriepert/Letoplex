@@ -1,7 +1,7 @@
-// Generates real PNG fixtures for the sample book, the import test package,
-// and the PWA icons. Pure Node (zlib only) so it runs anywhere:
+// Generates real PNG fixtures for the sample book and the import test
+// package. Pure Node (zlib only) so it runs anywhere:
 //   node scripts/generate-fixtures.mjs
-import { mkdirSync, writeFileSync, readFileSync } from 'node:fs'
+import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { deflateSync } from 'node:zlib'
@@ -379,37 +379,4 @@ for (const target of [join(root, 'import-test-books', 'mosslight-mystery.gab'), 
   console.log(`wrote ${relative(root, target)}`)
 }
 
-// ---------- App icons ----------
-
-const paintIcon = (size, { padding = 0 } = {}) => {
-  const c = createCanvas(size, size)
-  verticalGradient(c, '#f6eedf', '#e2cc9f')
-  const s = size * (1 - padding * 2)
-  const o = size * padding
-  const p = (x, y) => [o + x * s, o + y * s]
-  // Open book: two pages and a spine, in ink and paper.
-  fillPolygon(c, [p(0.12, 0.3), p(0.5, 0.36), p(0.5, 0.82), p(0.12, 0.76)], INK)
-  fillPolygon(c, [p(0.88, 0.3), p(0.5, 0.36), p(0.5, 0.82), p(0.88, 0.76)], INK)
-  fillPolygon(c, [p(0.16, 0.33), p(0.48, 0.385), p(0.48, 0.78), p(0.16, 0.725)], PAPER)
-  fillPolygon(c, [p(0.84, 0.33), p(0.52, 0.385), p(0.52, 0.78), p(0.84, 0.725)], PAPER)
-  // A branching arrow on the right page and a speech bubble above.
-  fillPolygon(c, [p(0.8, 0.565), p(0.68, 0.45), p(0.68, 0.51), p(0.58, 0.51), p(0.58, 0.62), p(0.68, 0.62), p(0.68, 0.68)], '#b5552e')
-  fillCircle(c, ...p(0.5, 0.18), s * 0.12, '#d8b788')
-  fillPolygon(c, [p(0.46, 0.27), p(0.52, 0.27), p(0.47, 0.33)], '#d8b788')
-  fillRect(c, ...p(0.43, 0.165), s * 0.035, s * 0.035, INK)
-  fillRect(c, ...p(0.485, 0.165), s * 0.035, s * 0.035, INK)
-  fillRect(c, ...p(0.54, 0.165), s * 0.035, s * 0.035, INK)
-  return encodePng(c)
-}
-
-const iconDir = join(root, 'public', 'icons')
-mkdirSync(iconDir, { recursive: true })
-writeFileSync(join(iconDir, 'icon-192.png'), paintIcon(192))
-writeFileSync(join(iconDir, 'icon-512.png'), paintIcon(512))
-writeFileSync(join(iconDir, 'icon-maskable-512.png'), paintIcon(512, { padding: 0.1 }))
-writeFileSync(join(iconDir, 'apple-touch-icon.png'), paintIcon(180, { padding: 0.04 }))
-console.log('wrote public/icons')
-
-// Sanity check: every PNG we wrote starts with the PNG signature.
-const sig = readFileSync(join(iconDir, 'icon-192.png')).subarray(0, 4).toString('hex')
-if (sig !== '89504e47') throw new Error('PNG signature mismatch')
+// App icons are made from design/icon-source.png by scripts/make-icons.ps1.

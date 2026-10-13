@@ -9,7 +9,19 @@ import type { Book } from '../book/schema'
 const DB_NAME = 'graphic-adventure'
 const DB_VERSION = 1
 
-export type StoredBook = { book: Book; importedAt: number; sizeBytes: number }
+export type StoredBook = {
+  book: Book
+  importedAt: number
+  sizeBytes: number
+  /**
+   * Which asset key range holds this book's images. Each import writes to a
+   * fresh key so a replacement never touches the old copy until it's complete.
+   * Books saved before this existed use their book id.
+   */
+  storageKey?: string
+}
+
+export const storageKeyOf = (stored: StoredBook) => stored.storageKey ?? stored.book.id
 
 export type Progress = {
   /** Highest chapter index the reader has reached. */
@@ -86,36 +98,107 @@ const withStore = async <T>(
   }
 }
 
-/** Keys of every asset for a book: [bookId] < [bookId, any string] < [bookId, []]. */
-const assetRange = (bookId: string) => IDBKeyRange.bound([bookId], [bookId, []])
+/** Every asset under a storage key: [key] < [key, any string] < [key, []]. */
+const assetRange = (storageKey: string) => IDBKeyRange.bound([storageKey], [storageKey, []])
 
 export const listBooks = () =>
   withStore('books', 'readonly', (tx) => promisify(tx.objectStore('books').getAll() as IDBRequest<StoredBook[]>))
 
-export const getAsset = (bookId: string, path: string) =>
-  withStore('assets', 'readonly', (tx) => promisify(tx.objectStore('assets').get([bookId, path]) as IDBRequest<Blob | undefined>))
+export const getAsset = (storageKey: string, path: string) =>
+  withStore('assets', 'readonly', (tx) => promisify(tx.objectStore('assets').get([storageKey, path]) as IDBRequest<Blob | undefined>))
 
-/** Saves a book and its images atomically, replacing any earlier copy. */
-export const saveBook = (book: Book, assets: Map<string, Blob>) =>
-  withStore(['books', 'assets'], 'readwrite', (tx) => {
-    const assetStore = tx.objectStore('assets')
-    assetStore.delete(assetRange(book.id))
-    let sizeBytes = 0
-    for (const [path, blob] of assets) {
-      sizeBytes += blob.size
-      assetStore.put(blob, [book.id, path])
-    }
-    const stored: StoredBook = { book, importedAt: Date.now(), sizeBytes }
-    tx.objectStore('books').put(stored, book.id)
-    return stored
+/** Stores one image. Imports call this once per image so memory stays flat. */
+export const putAsset = (storageKey: string, path: string, blob: Blob) =>
+  withStore('assets', 'readwrite', (tx) => {
+    tx.objectStore('assets').put(blob, [storageKey, path])
   })
+
+/** Deletes every image under a storage key (e.g. a cancelled import). */
+export const deleteAssets = (storageKey: string) =>
+  withStore('assets', 'readwrite', (tx) => {
+    tx.objectStore('assets').delete(assetRange(storageKey))
+  })
+
+/**
+ * Makes an import live once all its images are stored: points the book at
+ * the new storage key and, in the same transaction, drops the old copy's
+ * images. Until this runs, any earlier copy of the book is untouched.
+ */
+export const commitBook = (book: Book, storageKey: string, sizeBytes: number) =>
+  withStore(
+    ['books', 'assets'],
+    'readwrite',
+    (tx) =>
+      new Promise<StoredBook>((resolve, reject) => {
+        const books = tx.objectStore('books')
+        const request = books.get(book.id) as IDBRequest<StoredBook | undefined>
+        request.onsuccess = () => {
+          const previous = request.result
+          if (previous && storageKeyOf(previous) !== storageKey) {
+            tx.objectStore('assets').delete(assetRange(storageKeyOf(previous)))
+          }
+          const stored: StoredBook = { book, importedAt: Date.now(), sizeBytes, storageKey }
+          books.put(stored, book.id)
+          resolve(stored)
+        }
+        request.onerror = () => reject(request.error)
+      }),
+  )
 
 export const deleteBook = (bookId: string) =>
-  withStore(['books', 'assets', 'progress'], 'readwrite', (tx) => {
-    tx.objectStore('books').delete(bookId)
-    tx.objectStore('assets').delete(assetRange(bookId))
-    tx.objectStore('progress').delete(bookId)
-  })
+  withStore(
+    ['books', 'assets', 'progress'],
+    'readwrite',
+    (tx) =>
+      new Promise<void>((resolve, reject) => {
+        const books = tx.objectStore('books')
+        const request = books.get(bookId) as IDBRequest<StoredBook | undefined>
+        request.onsuccess = () => {
+          tx.objectStore('assets').delete(assetRange(request.result ? storageKeyOf(request.result) : bookId))
+          books.delete(bookId)
+          tx.objectStore('progress').delete(bookId)
+          resolve()
+        }
+        request.onerror = () => reject(request.error)
+      }),
+  )
+
+/**
+ * Deletes images that no book points to: leftovers from an import that was
+ * interrupted (tab closed, phone restarted) before it was committed. Only run
+ * this when no import is in progress, e.g. at startup.
+ */
+export const removeOrphanAssets = () =>
+  withStore(
+    ['books', 'assets'],
+    'readwrite',
+    (tx) =>
+      new Promise<number>((resolve, reject) => {
+        const booksRequest = tx.objectStore('books').getAll() as IDBRequest<StoredBook[]>
+        booksRequest.onerror = () => reject(booksRequest.error)
+        booksRequest.onsuccess = () => {
+          const live = new Set(booksRequest.result.map(storageKeyOf))
+          const assets = tx.objectStore('assets')
+          let removed = 0
+          const cursorRequest = assets.openKeyCursor()
+          cursorRequest.onerror = () => reject(cursorRequest.error)
+          cursorRequest.onsuccess = () => {
+            const cursor = cursorRequest.result
+            if (!cursor) {
+              resolve(removed)
+              return
+            }
+            const storageKey = String((cursor.key as IDBValidKey[])[0])
+            if (!live.has(storageKey)) {
+              assets.delete(assetRange(storageKey))
+              removed++
+            }
+            // Jump past this key's whole range instead of visiting every image.
+            cursor.continue([storageKey, []])
+          }
+        }
+      }),
+  )
 
 export const loadAllProgress = () =>
   withStore('progress', 'readonly', async (tx) => {

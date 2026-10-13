@@ -12,6 +12,9 @@ type Props = {
   onContinue: (bookId: string) => void
   onImport: () => void
   onBookActions: (bookId: string) => void
+  hiddenSampleCount: number
+  onRestoreSamples: () => void
+  onManageStorage: () => void
 }
 
 function BookCard({
@@ -60,7 +63,19 @@ function BookCard({
   )
 }
 
-export function Library({ entries, progress, loading, storageError, onOpen, onContinue, onImport, onBookActions }: Props) {
+export function Library({
+  entries,
+  progress,
+  loading,
+  storageError,
+  onOpen,
+  onContinue,
+  onImport,
+  onBookActions,
+  hiddenSampleCount,
+  onRestoreSamples,
+  onManageStorage,
+}: Props) {
   return (
     <div className="library-screen">
       <header className="library-header">
@@ -99,7 +114,24 @@ export function Library({ entries, progress, loading, storageError, onOpen, onCo
         })}
       </div>
 
-      <p className="library-footnote">Books and reading progress are saved only on this device.</p>
+      {entries.length === 0 && !loading && (
+        <p className="library-empty">Your library is empty. Tap Add a book to get started.</p>
+      )}
+
+      <p className="library-footnote">
+        Books and reading progress are saved only on this device.{' '}
+        <button type="button" className="link-button" onClick={onManageStorage}>
+          Manage storage
+        </button>
+      </p>
+
+      {hiddenSampleCount > 0 && (
+        <p className="library-footnote">
+          <button type="button" className="link-button" onClick={onRestoreSamples}>
+            Show the sample book again
+          </button>
+        </p>
+      )}
     </div>
   )
 }

@@ -22,7 +22,8 @@ describe('readArchive', () => {
     expect(result.pkg.book.title).toBe('Mosslight Mystery')
     expect(result.pkg.book.chapters).toHaveLength(2)
     expect(result.pkg.assets.size).toBe(4)
-    const image = result.pkg.assets.get('chapters/chapter-1/page-1.png')!
+    expect(result.pkg.totalBytes).toBeGreaterThan(0)
+    const image = await result.pkg.assets.get('chapters/chapter-1/page-1.png')!.read()
     expect(image.type).toBe('image/png')
     expect(new Uint8Array(await image.slice(0, 8).arrayBuffer())).toEqual(PNG)
   })

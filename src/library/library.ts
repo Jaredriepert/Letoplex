@@ -2,7 +2,8 @@
 // into IndexedDB, each with a way to turn image paths into displayable URLs.
 import forestJson from '../data/forest-of-echoes/book.json'
 import { parseBook, type Book } from '../book/schema'
-import { getAsset, listBooks, type StoredBook } from '../storage/db'
+import { getAsset, listBooks, storageKeyOf, type StoredBook } from '../storage/db'
+import { readHiddenBuiltins } from '../storage/prefs'
 
 export type LoadedAsset = { url: string; release: () => void }
 
@@ -32,9 +33,9 @@ const bundledSource = (base: string, urls: Record<string, string>): AssetSource 
   },
 })
 
-const storedSource = (bookId: string): AssetSource => ({
+const storedSource = (storageKey: string): AssetSource => ({
   load: async (path) => {
-    const blob = await getAsset(bookId, path)
+    const blob = await getAsset(storageKey, path)
     if (!blob) {
       return null
     }
@@ -54,18 +55,26 @@ const buildBuiltinEntries = (): LibraryEntry[] => {
 export const builtinEntries = buildBuiltinEntries()
 
 export const entryFromStored = (stored: StoredBook): LibraryEntry => ({
-  ...stored,
+  book: stored.book,
+  importedAt: stored.importedAt,
+  sizeBytes: stored.sizeBytes,
   builtin: false,
-  source: storedSource(stored.book.id),
+  source: storedSource(storageKeyOf(stored)),
 })
 
 /** Newest imports first, bundled books last. */
 export const sortEntries = (entries: LibraryEntry[]) =>
   [...entries].sort((a, b) => Number(a.builtin) - Number(b.builtin) || b.importedAt - a.importedAt)
 
+/** Built-in books the user hasn't removed from their library. */
+export const visibleBuiltinEntries = () => {
+  const hidden = new Set(readHiddenBuiltins())
+  return builtinEntries.filter((entry) => !hidden.has(entry.book.id))
+}
+
 export const loadLibrary = async (): Promise<LibraryEntry[]> => {
   const stored = await listBooks()
-  return sortEntries([...stored.map(entryFromStored), ...builtinEntries])
+  return sortEntries([...stored.map(entryFromStored), ...visibleBuiltinEntries()])
 }
 
 /** Picks an id not already in the library: `id`, `id-2`, `id-3`… */

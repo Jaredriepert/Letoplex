@@ -49,7 +49,10 @@ Implemented in the current source:
 
 - One canonical, versioned book schema (v1), documented in [docs/BOOK_FORMAT.md](docs/BOOK_FORMAT.md), with migration of the two older JSON layouts and validation that reports every problem.
 - Import from `.gab`/`.zip` archives (primary, works on phones), folders (relative-path mapping via `webkitRelativePath`), links (`?import=` deep links ask before downloading), the Android share sheet (manifest `share_target`), and desktop "open with" (`file_handlers`). Size limits guard against huge archives.
-- Duplicate handling (replace or keep both), readable error/notes sheets, a busy state, and quota-exceeded messaging.
+- Streaming import: archives are read through their zip index ([src/book/zip.ts](src/book/zip.ts), zip64 supported) and images are copied into storage one at a time ([src/library/importer.ts](src/library/importer.ts)), so memory stays flat for multi-GB books. There's a progress bar with cancel, and a wake lock keeps the screen on.
+- Space check before saving ("needs X, about Y free") with *Free up space* (Storage sheet listing books by size) or *Try anyway*. Running out mid-save rolls back cleanly.
+- Each import writes under a fresh storage key and is committed atomically at the end, so a failed or cancelled replacement never damages the existing copy. Leftovers from interrupted imports are removed at startup.
+- Duplicate handling (replace or keep both), readable error/notes sheets, and remove from the ⋯ menu for every book (the built-in sample is hidden and can be restored).
 - IndexedDB persistence of books, page image blobs and progress (unlocked chapter and last page). `navigator.storage.persist()` is requested after the first import. Remove-book and start-over actions.
 - On-demand images: only the current page and its direct neighbours have object URLs; others are revoked. Neighbours are pre-decoded. Image-load failure state.
 - Reader: swipe, edge-tap zones sized for fingers, direction arrows, dead-end nudge, end-of-path card, pinch/double-tap zoom with pan, tap-to-hide controls, keyboard arrows, first-run "How to read" guide, slide transitions (reduced-motion aware). Pages use `contain` fit by default (`fit: "cover"` per book).
@@ -61,7 +64,7 @@ Implemented in the current source:
 Not implemented or not yet verified:
 
 - The real-device checklist in [docs/MOBILE_TESTING.md](docs/MOBILE_TESTING.md) hasn't been run. Behaviour was checked in a phone-sized headless Chrome, not on Safari or real hardware.
-- Large-book performance (50+ full-resolution pages) hasn't been measured.
+- Large-book import was stress-tested on desktop Chrome only (602 MB). Phone import speed, and behaviour when the OS suspends a backgrounded tab mid-import, still need device checks.
 - A book editor, package export flow, or native wrapper.
 
 ## Book Package and Data Model

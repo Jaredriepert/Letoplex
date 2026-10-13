@@ -39,14 +39,15 @@ export function Sheet({ title, onClose, children }: { title: string; onClose?: (
   )
 }
 
-const useStorageEstimate = () => {
+/** Browser storage usage; pass a changing `refreshKey` to re-measure. */
+const useStorageEstimate = (refreshKey: unknown = null) => {
   const [estimate, setEstimate] = useState<{ usage: number; quota: number } | null>(null)
   useEffect(() => {
     navigator.storage
       ?.estimate?.()
       .then(({ usage, quota }) => usage !== undefined && quota !== undefined && setEstimate({ usage, quota }))
       .catch(() => undefined)
-  }, [])
+  }, [refreshKey])
   return estimate
 }
 
@@ -258,22 +259,26 @@ export function BookActionsSheet({
           <small>Forget reading progress and lock later chapters again</small>
         </button>
 
-        {!entry.builtin &&
-          (confirmingRemove ? (
-            <div className="confirm-row">
-              <p>Remove this book and its pictures from this device?</p>
-              <button type="button" className="danger-button wide" onClick={onRemove}>
-                Yes, remove it
-              </button>
-              <button type="button" className="link-button" onClick={() => setConfirmingRemove(false)}>
-                Keep it
-              </button>
-            </div>
-          ) : (
-            <button type="button" className="secondary-button wide" onClick={() => setConfirmingRemove(true)}>
-              Remove from this device
+        {confirmingRemove ? (
+          <div className="confirm-row">
+            <p>
+              {entry.builtin
+                ? 'Remove this sample book from your library? It comes with the app, so you can bring it back from the bottom of the library.'
+                : `Remove this book and its pictures from this device? This frees ${formatBytes(entry.sizeBytes)}. You'll need the book file to add it again.`}
+            </p>
+            <button type="button" className="danger-button wide" onClick={onRemove}>
+              Yes, remove it
             </button>
-          ))}
+            <button type="button" className="link-button" onClick={() => setConfirmingRemove(false)}>
+              Keep it
+            </button>
+          </div>
+        ) : (
+          <button type="button" className="secondary-button wide" onClick={() => setConfirmingRemove(true)}>
+            {entry.builtin ? 'Remove from library' : 'Remove from this device'}
+            {!entry.builtin && <small>Frees {formatBytes(entry.sizeBytes)}</small>}
+          </button>
+        )}
       </div>
     </Sheet>
   )
@@ -287,6 +292,159 @@ export function BusyOverlay({ message }: { message: string }) {
         {message}
       </div>
     </div>
+  )
+}
+
+export type SaveStatus = {
+  title: string
+  savedFiles: number
+  totalFiles: number
+  savedBytes: number
+  totalBytes: number
+  cancelling: boolean
+}
+
+/** Progress for saving a book's pages, with a way out. */
+export function SaveProgressOverlay({ status, onCancel }: { status: SaveStatus; onCancel: () => void }) {
+  const fraction = status.totalBytes > 0 ? status.savedBytes / status.totalBytes : status.savedFiles / Math.max(1, status.totalFiles)
+  const percent = Math.min(100, Math.round(fraction * 100))
+  return (
+    <div className="busy-overlay">
+      <div className="busy-card progress-card" role="status" aria-live="polite">
+        <strong>Adding “{status.title}”</strong>
+        <div className="progress-track" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+          <div className="progress-fill" style={{ width: `${percent}%` }} />
+        </div>
+        <span className="progress-detail">
+          {status.cancelling
+            ? 'Cancelling…'
+            : `Saving pages: ${status.savedFiles} of ${status.totalFiles} · ${formatBytes(status.savedBytes)} of ${formatBytes(status.totalBytes)}`}
+        </span>
+        <span className="progress-detail">Keep the app open until this finishes.</span>
+        <button type="button" className="link-button" onClick={onCancel} disabled={status.cancelling}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  )
+}
+
+export function SpaceSheet({
+  title,
+  neededBytes,
+  freeBytes,
+  onFreeUp,
+  onTryAnyway,
+  onCancel,
+}: {
+  title: string
+  neededBytes: number
+  freeBytes: number
+  onFreeUp: () => void
+  onTryAnyway: () => void
+  onCancel: () => void
+}) {
+  return (
+    <Sheet title="Not enough space" onClose={onCancel}>
+      <div className="sheet-body">
+        <p>
+          <b>{title}</b> needs about <b>{formatBytes(neededBytes)}</b>, but this browser says only about <b>{formatBytes(freeBytes)}</b> is free for
+          the app.
+        </p>
+        <button type="button" className="primary-button wide" onClick={onFreeUp}>
+          Free up space
+          <small>Remove books you've finished</small>
+        </button>
+        <button type="button" className="secondary-button wide" onClick={onTryAnyway}>
+          Try anyway
+          <small>Browsers sometimes under-report space. If it runs out, nothing is changed.</small>
+        </button>
+        <button type="button" className="link-button" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </Sheet>
+  )
+}
+
+/** Lists stored books by size so people can free space. */
+export function StorageSheet({
+  entries,
+  pendingTitle,
+  message,
+  onRemove,
+  onContinuePending,
+  onClose,
+}: {
+  entries: LibraryEntry[]
+  /** Set when the user came here from "Not enough space". */
+  pendingTitle: string | null
+  message?: string
+  onRemove: (bookId: string) => void
+  onContinuePending: () => void
+  onClose: () => void
+}) {
+  const estimate = useStorageEstimate(entries.length)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
+  const stored = entries.filter((entry) => !entry.builtin).sort((a, b) => b.sizeBytes - a.sizeBytes)
+
+  return (
+    <Sheet title="Storage" onClose={onClose}>
+      <div className="sheet-body">
+        {message && <p className="notice">{message}</p>}
+        <p className="sheet-note">
+          {estimate
+            ? `Using ${formatBytes(estimate.usage)}. About ${formatBytes(Math.max(0, estimate.quota - estimate.usage))} more is available to the app.`
+            : 'Books are stored in this browser on this device.'}
+        </p>
+
+        {stored.length === 0 ? (
+          <p>No imported books are stored yet.</p>
+        ) : (
+          <ul className="storage-list">
+            {stored.map((entry) => (
+              <li key={entry.book.id}>
+                <div className="storage-row">
+                  <div>
+                    <strong>{entry.book.title}</strong>
+                    <span>{formatBytes(entry.sizeBytes)}</span>
+                  </div>
+                  {confirmingId !== entry.book.id && (
+                    <button type="button" className="secondary-button" onClick={() => setConfirmingId(entry.book.id)}>
+                      Remove
+                    </button>
+                  )}
+                </div>
+                {confirmingId === entry.book.id && (
+                  <div className="confirm-row">
+                    <p>Remove this book and its pictures from this device? You'll need the book file to add it again.</p>
+                    <button
+                      type="button"
+                      className="danger-button wide"
+                      onClick={() => {
+                        setConfirmingId(null)
+                        onRemove(entry.book.id)
+                      }}
+                    >
+                      Yes, remove it
+                    </button>
+                    <button type="button" className="link-button" onClick={() => setConfirmingId(null)}>
+                      Keep it
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {pendingTitle && (
+          <button type="button" className="primary-button wide" onClick={onContinuePending}>
+            Continue adding “{pendingTitle}”
+          </button>
+        )}
+      </div>
+    </Sheet>
   )
 }
 

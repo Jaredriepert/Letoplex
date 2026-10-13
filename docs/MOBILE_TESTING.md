@@ -17,7 +17,9 @@ Open the `Network:` address Vite prints (e.g. `http://192.168.1.20:5173`) on the
 ## What's automated
 
 - `npm test`: schema, migration, validation and package-reading unit tests.
-- A headless phone-sized Chrome run was used during development to check swipes, edge taps, zoom, back button, reload, import, duplicates, errors, removal, offline loading and share-target handling. It is **not** a substitute for the device checks below; it can't reproduce Safari or real touch hardware.
+- A headless phone-sized Chrome run was used during development to check swipes, edge taps, zoom, back button, reload, import, duplicates, errors, removal, offline loading and share-target handling.
+- A 602 MB, 300-page stress book was imported the same way. Peak JavaScript memory stayed around 5 MB. Cancel, a simulated full device, and a tab killed mid-import all left storage consistent.
+- None of this is a substitute for the device checks below; it can't reproduce Safari, real touch hardware, or phone storage speeds. Expect large imports to take noticeably longer on a phone than on a desktop.
 
 ## Real-device checklist
 
@@ -42,7 +44,10 @@ Run on a current **iPhone (Safari)** and a current **Android phone (Chrome)**. T
 | 15 | Installed app in airplane mode: opens, library and imported books readable | | |
 | 16 | Android, installed: share a `.gab` from Files/Drive → *Graphic Adventure* appears in the share sheet and imports it | | |
 | 17 | Link import: open `https://<your-site>/?import=https://<your-site>/samples/mosslight-mystery.gab` → confirm sheet → imports | | |
-| 18 | Large book (50+ full-size pages): import completes; page turns stay smooth; no reload/crash after reading many pages | | |
+| 18 | Large book (several hundred MB): progress bar moves steadily, app stays responsive, import completes; page turns stay smooth; no reload/crash after reading many pages | | |
+| 18a | Cancel a large import part-way: "Import cancelled", library unchanged | | |
+| 18b | Lock the phone or switch apps mid-import, then come back: the import either finished, or the book isn't in the library and Storage shows no leftover space used after reopening | | |
+| 18c | Import a book bigger than the phone's free space: "Not enough space" appears before saving; *Free up space* → remove a book → *Continue adding* works | | |
 | 19 | Remove a book from ⋯ → it's gone after reopening the app | | |
 | 20 | Private/incognito mode: app shows the "isn't letting the app save books" notice instead of failing silently | | |
 

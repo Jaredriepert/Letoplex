@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState } from 'react'
 import './App.css'
 import { readArchive, readFromUrl, readPickedFiles, type BookPackage, type ImportResult } from './book/package'
-import { chapterIndexOf, type Issue } from './book/schema'
+import { chapterIndexOf, type Book, type Issue } from './book/schema'
 import {
   BookActionsSheet,
   BusyOverlay,
@@ -9,10 +9,24 @@ import {
   DuplicateSheet,
   ImportSheet,
   ReportSheet,
+  SaveProgressOverlay,
+  SpaceSheet,
+  StorageSheet,
   Toast,
+  type SaveStatus,
   type ToastMessage,
 } from './components/Sheets'
-import { builtinEntries, entryFromStored, loadLibrary, sortEntries, uniqueBookId, type LibraryEntry } from './library/library'
+import { checkSpace, holdWakeLock, ImportCancelled, savePackage } from './library/importer'
+import {
+  builtinEntries,
+  entryFromStored,
+  loadLibrary,
+  sortEntries,
+  uniqueBookId,
+  visibleBuiltinEntries,
+  type LibraryEntry,
+} from './library/library'
+import { readHiddenBuiltins, writeHiddenBuiltins } from './storage/prefs'
 import { registerServiceWorker, requestPersistentStorage } from './pwa'
 import { Chapters } from './screens/Chapters'
 import { Library } from './screens/Library'
@@ -21,7 +35,7 @@ import {
   clearProgress,
   deleteBook,
   loadAllProgress,
-  saveBook,
+  removeOrphanAssets,
   saveProgress,
   takeInbox,
   type Progress,
@@ -32,12 +46,17 @@ type Route =
   | { screen: 'chapters'; bookId: string }
   | { screen: 'reader'; bookId: string; pageId: string }
 
+/** A validated package waiting to be saved, with its final id and title. */
+type PendingImport = { pkg: BookPackage; issues: Issue[]; book: Book }
+
 type SheetState =
   | { kind: 'import' }
   | { kind: 'report'; title: string; issues: Issue[] }
   | { kind: 'duplicate'; pkg: BookPackage; issues: Issue[]; existing: LibraryEntry }
   | { kind: 'link'; url: string }
   | { kind: 'actions'; bookId: string }
+  | { kind: 'space'; pending: PendingImport; neededBytes: number; freeBytes: number }
+  | { kind: 'storage'; pending: PendingImport | null; message?: string }
   | null
 
 const LIBRARY: Route = { screen: 'library' }
@@ -73,13 +92,16 @@ const withoutKey = <T,>(record: Record<string, T>, key: string) => {
 }
 
 function App() {
-  const [entries, setEntries] = useState<LibraryEntry[]>(builtinEntries)
+  const [entries, setEntries] = useState<LibraryEntry[]>(visibleBuiltinEntries)
+  const [hiddenBuiltinCount, setHiddenBuiltinCount] = useState(() => readHiddenBuiltins().length)
   const [libraryLoading, setLibraryLoading] = useState(true)
   const [storageError, setStorageError] = useState(false)
   const [progress, setProgress] = useState<Record<string, Progress>>({})
   const [route, setRoute] = useState<Route>(() => readRoute(window.history.state) ?? LIBRARY)
   const [sheet, setSheet] = useState<SheetState>(null)
   const [busy, setBusy] = useState<string | null>(null)
+  const [saveStatus, setSaveStatus] = useState<SaveStatus | null>(null)
+  const saveAbortRef = useRef<AbortController | null>(null)
   const [toast, setToast] = useState<ToastMessage | null>(null)
   const entriesRef = useRef(entries)
   const progressRef = useRef(progress)
@@ -173,17 +195,18 @@ function App() {
 
   // ---------- Import ----------
 
-  const commitImport = async (pkg: BookPackage, issues: Issue[], mode: 'new' | 'replace' | 'copy') => {
+  /** Copies the pages into storage with a progress bar, then opens the book. */
+  const savePending = async ({ pkg, issues, book }: PendingImport) => {
     setSheet(null)
-    let book = pkg.book
-    if (mode === 'copy') {
-      const id = uniqueBookId(book.id, new Set(entriesRef.current.map((item) => item.book.id)))
-      book = { ...book, id, title: `${book.title} (${id.slice(book.id.length + 1)})` }
-    }
-
-    setBusy('Saving to this device…')
+    const controller = new AbortController()
+    saveAbortRef.current = controller
+    setSaveStatus({ title: book.title, savedFiles: 0, totalFiles: pkg.assets.size, savedBytes: 0, totalBytes: pkg.totalBytes, cancelling: false })
+    const releaseWakeLock = await holdWakeLock()
     try {
-      const stored = await saveBook(book, pkg.assets)
+      const stored = await savePackage(pkg, book, {
+        signal: controller.signal,
+        onProgress: (progress) => setSaveStatus((status) => (status ? { ...status, ...progress } : status)),
+      })
       setEntries((previous) => sortEntries([entryFromStored(stored), ...previous.filter((item) => item.book.id !== book.id)]))
       void requestPersistentStorage()
       navigate({ screen: 'chapters', bookId: book.id })
@@ -195,21 +218,43 @@ function App() {
           : undefined,
       )
     } catch (error) {
-      setSheet({
-        kind: 'report',
-        title: "This book couldn't be saved",
-        issues: [
-          {
-            level: 'error',
-            message: isQuotaError(error)
-              ? "There isn't enough free storage on this device for this book. Remove a book or free up space, then try again."
-              : `Saving failed: ${errorMessage(error)}`,
-          },
-        ],
-      })
+      if (error instanceof ImportCancelled) {
+        showToast('Import cancelled. Nothing was changed.')
+      } else if (isQuotaError(error)) {
+        setSheet({ kind: 'storage', pending: { pkg, issues, book }, message: 'The device ran out of space while saving. Nothing was changed. Remove a book to make room, then continue.' })
+      } else {
+        setSheet({ kind: 'report', title: "This book couldn't be saved", issues: [{ level: 'error', message: `Saving failed: ${errorMessage(error)}. Nothing was changed.` }] })
+      }
     } finally {
-      setBusy(null)
+      releaseWakeLock()
+      saveAbortRef.current = null
+      setSaveStatus(null)
     }
+  }
+
+  /** Checks free space first; if it looks short, lets the user free some or try anyway. */
+  const startSave = async (pending: PendingImport) => {
+    setSheet(null)
+    const space = await checkSpace(pending.pkg)
+    if (space.status === 'short') {
+      setSheet({ kind: 'space', pending, neededBytes: space.neededBytes, freeBytes: space.freeBytes })
+      return
+    }
+    await savePending(pending)
+  }
+
+  const commitImport = async (pkg: BookPackage, issues: Issue[], mode: 'new' | 'replace' | 'copy') => {
+    let book = pkg.book
+    if (mode === 'copy') {
+      const id = uniqueBookId(book.id, new Set(entriesRef.current.map((item) => item.book.id)))
+      book = { ...book, id, title: `${book.title} (${id.slice(book.id.length + 1)})` }
+    }
+    await startSave({ pkg, issues, book })
+  }
+
+  const cancelSave = () => {
+    saveAbortRef.current?.abort()
+    setSaveStatus((status) => (status ? { ...status, cancelling: true } : status))
   }
 
   const runImport = async (read: () => Promise<ImportResult>) => {
@@ -281,6 +326,9 @@ function App() {
       }
       if (!cancelled) {
         setLibraryLoading(false)
+        // Clear out images from imports that were interrupted last time.
+        // This must finish before any new import starts writing.
+        await removeOrphanAssets().catch(() => undefined)
         void handleIncoming()
       }
     }
@@ -299,8 +347,40 @@ function App() {
     showToast('Progress cleared')
   }
 
-  const removeBook = async (bookId: string) => {
-    setSheet(null)
+  const setBuiltinHidden = (bookId: string, hidden: boolean) => {
+    const ids = new Set(readHiddenBuiltins())
+    if (hidden) {
+      ids.add(bookId)
+    } else {
+      ids.delete(bookId)
+    }
+    writeHiddenBuiltins([...ids])
+    setHiddenBuiltinCount(ids.size)
+    const builtin = builtinEntries.find((item) => item.book.id === bookId)
+    setEntries((previous) => {
+      const others = previous.filter((item) => item.book.id !== bookId)
+      return hidden || !builtin ? others : sortEntries([...others, builtin])
+    })
+  }
+
+  const restoreBuiltins = () => {
+    writeHiddenBuiltins([])
+    setHiddenBuiltinCount(0)
+    setEntries((previous) =>
+      sortEntries([...previous.filter((item) => !item.builtin), ...builtinEntries]),
+    )
+  }
+
+  const removeBook = async (bookId: string, options: { keepSheet?: boolean } = {}) => {
+    if (!options.keepSheet) {
+      setSheet(null)
+    }
+    // Built-in books take no storage; removing just hides them (progress is kept).
+    if (entriesRef.current.find((item) => item.book.id === bookId)?.builtin) {
+      setBuiltinHidden(bookId, true)
+      showToast('Sample book removed from your library', { label: 'Undo', run: () => setBuiltinHidden(bookId, false) })
+      return
+    }
     try {
       await deleteBook(bookId)
       setEntries((previous) => previous.filter((item) => item.book.id !== bookId))
@@ -336,6 +416,9 @@ function App() {
           }}
           onImport={() => setSheet({ kind: 'import' })}
           onBookActions={(bookId) => setSheet({ kind: 'actions', bookId })}
+          hiddenSampleCount={hiddenBuiltinCount}
+          onRestoreSamples={restoreBuiltins}
+          onManageStorage={() => setSheet({ kind: 'storage', pending: null })}
         />
       )
     }
@@ -415,6 +498,28 @@ function App() {
           />
         )
       }
+      case 'space':
+        return (
+          <SpaceSheet
+            title={sheet.pending.book.title}
+            neededBytes={sheet.neededBytes}
+            freeBytes={sheet.freeBytes}
+            onFreeUp={() => setSheet({ kind: 'storage', pending: sheet.pending })}
+            onTryAnyway={() => void savePending(sheet.pending)}
+            onCancel={() => setSheet(null)}
+          />
+        )
+      case 'storage':
+        return (
+          <StorageSheet
+            entries={entries}
+            pendingTitle={sheet.pending?.book.title ?? null}
+            message={sheet.message}
+            onRemove={(bookId) => void removeBook(bookId, { keepSheet: true })}
+            onContinuePending={() => sheet.pending && void startSave(sheet.pending)}
+            onClose={() => setSheet(null)}
+          />
+        )
       default:
         return null
     }
@@ -425,7 +530,9 @@ function App() {
       {renderScreen()}
       {renderSheet()}
       {busy && <BusyOverlay message={busy} />}
-      {toast && <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />}
+      {saveStatus && <SaveProgressOverlay status={saveStatus} onCancel={cancelSave} />}
+      {/* Toasts would cover a sheet's buttons, so they wait until it closes. */}
+      {toast && !sheet && <Toast key={toast.id} toast={toast} onDismiss={dismissToast} />}
     </div>
   )
 }

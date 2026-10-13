@@ -1,18 +1,27 @@
 // Reads a book package (a .gab/.zip archive or a picked folder) into a
-// validated Book plus its image blobs. Browser file access stays in here so
-// screens only deal with the result.
-import { unzip, type Unzipped } from 'fflate'
+// validated Book plus lazy handles to its images. Nothing large is loaded
+// here: images are only read, one at a time, when they're saved.
 import { normalizePath, parseBook, referencedImages, type Book, type Issue } from './schema'
+import { readZipEntry, readZipIndex, ZipError } from './zip'
 
-export type BookPackage = { book: Book; assets: Map<string, Blob> }
+/** A file inside a package that hasn't been read yet. */
+export type PackageFile = { size: number; read: () => Promise<Blob> }
+
+export type BookPackage = {
+  book: Book
+  assets: Map<string, PackageFile>
+  /** Total bytes of all referenced images once stored. */
+  totalBytes: number
+}
 
 export type ImportResult =
   | { ok: true; pkg: BookPackage; issues: Issue[] }
   | { ok: false; issues: Issue[] }
 
-/** Limits protect phones from huge or malicious archives. */
+/** Single images above this are almost certainly a mistake (or an attack). */
 export const MAX_FILE_BYTES = 64 * 1024 * 1024
-export const MAX_PACKAGE_BYTES = 1024 * 1024 * 1024
+/** book.json is read into memory, so keep it sane. */
+const MAX_BOOK_JSON_BYTES = 16 * 1024 * 1024
 
 const IMAGE_TYPES: Record<string, string> = {
   png: 'image/png',
@@ -34,11 +43,14 @@ const fail = (message: string, issues: Issue[] = []): ImportResult => ({
 const isIgnoredEntry = (path: string) =>
   path.split('/').some((segment) => segment.startsWith('.') || segment === '__MACOSX')
 
+/** Gives a blob the right MIME type so SVG and friends render from object URLs. */
+const withType = (blob: Blob, type: string) => (blob.type === type ? blob : blob.slice(0, blob.size, type))
+
 /**
- * Builds a package from a path → blob map. The shallowest `book.json` marks
+ * Builds a package from a path → file map. The shallowest `book.json` marks
  * the package root, so archives with or without a top-level folder both work.
  */
-export const buildPackage = async (entries: Map<string, Blob>): Promise<ImportResult> => {
+export const buildPackage = async (entries: Map<string, PackageFile>): Promise<ImportResult> => {
   const bookJsonPaths = Array.from(entries.keys())
     .filter((path) => path === 'book.json' || path.endsWith('/book.json'))
     .sort((a, b) => a.split('/').length - b.split('/').length)
@@ -49,11 +61,18 @@ export const buildPackage = async (entries: Map<string, Blob>): Promise<ImportRe
 
   const bookJsonPath = bookJsonPaths[0]
   const prefix = bookJsonPath.slice(0, -'book.json'.length)
+  const bookJsonFile = entries.get(bookJsonPath)!
+  if (bookJsonFile.size > MAX_BOOK_JSON_BYTES) {
+    return fail('book.json is too large.')
+  }
 
   let raw: unknown
   try {
-    raw = JSON.parse(await entries.get(bookJsonPath)!.text())
+    raw = JSON.parse(await (await bookJsonFile.read()).text())
   } catch (error) {
+    if (error instanceof ZipError) {
+      return fail(`book.json couldn't be read: ${error.message}`)
+    }
     return fail(`book.json isn't valid JSON (${error instanceof Error ? error.message : 'parse error'}).`)
   }
 
@@ -62,21 +81,26 @@ export const buildPackage = async (entries: Map<string, Blob>): Promise<ImportRe
     return { ok: false, issues }
   }
 
-  const assets = new Map<string, Blob>()
+  const assets = new Map<string, PackageFile>()
   const missing: string[] = []
+  let totalBytes = 0
   for (const path of referencedImages(book)) {
     const type = imageTypeFor(path)
     if (!type) {
       issues.push({ level: 'error', message: `"${path}" isn't a supported image type (use PNG, JPEG, WebP, GIF, AVIF or SVG).` })
       continue
     }
-    const blob = entries.get(prefix + path)
-    if (!blob) {
+    const file = entries.get(prefix + path)
+    if (!file) {
       missing.push(path)
       continue
     }
-    // Re-type the blob so SVG and friends render correctly from object URLs.
-    assets.set(path, blob.type === type ? blob : new Blob([blob], { type }))
+    if (file.size > MAX_FILE_BYTES) {
+      issues.push({ level: 'error', message: `"${path}" is ${Math.round(file.size / 1024 / 1024)} MB; images must be under 64 MB.` })
+      continue
+    }
+    totalBytes += file.size
+    assets.set(path, { size: file.size, read: async () => withType(await file.read(), type) })
   }
 
   if (missing.length > 0) {
@@ -89,66 +113,26 @@ export const buildPackage = async (entries: Map<string, Blob>): Promise<ImportRe
     return { ok: false, issues }
   }
 
-  return { ok: true, pkg: { book, assets }, issues }
+  return { ok: true, pkg: { book, assets, totalBytes }, issues }
 }
 
-const unzipAsync = (data: Uint8Array) =>
-  new Promise<Unzipped>((resolve, reject) => {
-    let total = 0
-    let tooLarge = ''
-    unzip(
-      data,
-      {
-        filter: (file) => {
-          if (file.name.endsWith('/') || isIgnoredEntry(file.name)) {
-            return false
-          }
-          total += file.originalSize
-          if (file.originalSize > MAX_FILE_BYTES || total > MAX_PACKAGE_BYTES) {
-            tooLarge ||= file.name
-            return false
-          }
-          return true
-        },
-      },
-      (error, files) => {
-        if (tooLarge) {
-          reject(new Error(`The package is too large to import ("${tooLarge}" exceeds the size limit).`))
-        } else if (error) {
-          reject(error)
-        } else {
-          resolve(files)
-        }
-      },
-    )
-  })
-
-const isZip = async (blob: Blob) => {
-  const header = new Uint8Array(await blob.slice(0, 4).arrayBuffer())
-  return header[0] === 0x50 && header[1] === 0x4b && header[2] === 0x03 && header[3] === 0x04
-}
-
-/** Reads a single .gab/.zip archive. */
+/** Reads a single .gab/.zip archive without loading it into memory. */
 export const readArchive = async (blob: Blob): Promise<ImportResult> => {
-  if (blob.size > MAX_PACKAGE_BYTES) {
-    return fail('The package is too large to import.')
-  }
-  if (!(await isZip(blob))) {
-    return fail("That file isn't a book package. Choose a .gab or .zip file that contains book.json.")
-  }
-
-  let files: Unzipped
+  let index
   try {
-    files = await unzipAsync(new Uint8Array(await blob.arrayBuffer()))
+    index = await readZipIndex(blob)
   } catch (error) {
-    return fail(error instanceof Error && error.message.includes('too large') ? error.message : "The package couldn't be opened; the archive may be damaged.")
+    if (error instanceof ZipError && error.message === 'Not a zip archive.') {
+      return fail("That file isn't a book package. Choose a .gab or .zip file that contains book.json.")
+    }
+    return fail(error instanceof ZipError ? error.message : "The package couldn't be opened; the archive may be damaged.")
   }
 
-  const entries = new Map<string, Blob>()
-  for (const [name, bytes] of Object.entries(files)) {
-    const path = normalizePath(name)
-    if (path) {
-      entries.set(path, new Blob([bytes as Uint8Array<ArrayBuffer>], { type: imageTypeFor(path) ?? '' }))
+  const entries = new Map<string, PackageFile>()
+  for (const entry of index) {
+    const path = entry.name.endsWith('/') ? null : normalizePath(entry.name)
+    if (path && !isIgnoredEntry(path)) {
+      entries.set(path, { size: entry.size, read: () => readZipEntry(blob, entry) })
     }
   }
   return buildPackage(entries)
@@ -167,19 +151,13 @@ export const readPickedFiles = async (files: File[]): Promise<ImportResult> => {
     return readArchive(files[0])
   }
 
-  const entries = new Map<string, Blob>()
-  let total = 0
+  const entries = new Map<string, PackageFile>()
   for (const file of files) {
     // Folder picks report "my-book/chapters/x.png"; loose picks only a name.
     const path = normalizePath(file.webkitRelativePath || file.name)
-    if (!path || isIgnoredEntry(path)) {
-      continue
+    if (path && !isIgnoredEntry(path)) {
+      entries.set(path, { size: file.size, read: async () => file })
     }
-    total += file.size
-    if (total > MAX_PACKAGE_BYTES) {
-      return fail('The folder is too large to import.')
-    }
-    entries.set(path, file)
   }
 
   const result = await buildPackage(entries)
@@ -192,7 +170,10 @@ export const readPickedFiles = async (files: File[]): Promise<ImportResult> => {
   return result
 }
 
-/** Downloads a package from a link (e.g. one an author shared). */
+/**
+ * Downloads a package from a link (e.g. one an author shared). The browser
+ * keeps large downloads on disk, so this doesn't need the whole book in memory.
+ */
 export const readFromUrl = async (url: string): Promise<ImportResult> => {
   let response: Response
   try {
@@ -202,10 +183,6 @@ export const readFromUrl = async (url: string): Promise<ImportResult> => {
   }
   if (!response.ok) {
     return fail(`The book couldn't be downloaded (server responded ${response.status}).`)
-  }
-  const declaredSize = Number(response.headers.get('content-length') ?? 0)
-  if (declaredSize > MAX_PACKAGE_BYTES) {
-    return fail('The package is too large to import.')
   }
   return readArchive(await response.blob())
 }
