@@ -4,9 +4,11 @@ A book is a **package**: a `book.json` file plus the page images it references. 
 
 | Form | Best for | Notes |
 | --- | --- | --- |
-| `.gab` file | Phones, sharing | A standard zip archive renamed `.gab`. Installed apps can register as the opener for `.gab`. |
-| `.zip` file | Phones, sharing | Same contents as `.gab`. |
+| `.letoplex` file | Phones, sharing | A standard zip archive renamed `.letoplex`. Installed apps can register as the opener for `.letoplex`. |
+| `.zip` file | Phones, sharing | Same contents as `.letoplex`. |
 | Folder | Computers, authoring | A folder that contains `book.json`. Folder picking is unreliable on phones. |
+
+Before the app was named Letoplex, packages used the `.gab` extension. They're identical inside and still import; the app looks at a file's contents, not its name.
 
 `book.json` may sit at the archive root or inside a single top-level folder (`my-book/book.json`). The shallowest `book.json` marks the package root. Hidden files and `__MACOSX/` entries are ignored.
 
@@ -23,13 +25,13 @@ my-book/
       altar.png
 ```
 
-To make a `.gab` from the folder above, zip the **contents** of `my-book/` (or the folder itself) and rename the result to `my-book.gab`.
+To make a `.letoplex` from the folder above, zip the **contents** of `my-book/` (or the folder itself) and rename the result to `my-book.letoplex`.
 
 ## book.json
 
 ```json
 {
-  "format": "graphic-adventure-book",
+  "format": "letoplex-book",
   "version": 1,
   "id": "forest-of-echoes",
   "title": "Forest of Echoes",
@@ -61,7 +63,7 @@ To make a `.gab` from the folder above, zip the **contents** of `my-book/` (or t
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `format` | Recommended | Always `"graphic-adventure-book"`. Any other value is rejected. |
+| `format` | Recommended | Always `"letoplex-book"`. The pre-rename value `"graphic-adventure-book"` is also accepted; any other value is rejected. |
 | `version` | Recommended | Schema version, currently `1`. Books with a higher version are rejected with a "needs a newer app" message. |
 | `id` | Recommended | Stable identifier, used to detect re-imports of the same book. Slugified (`a-z`, `0-9`, `-`). Defaults to the slugified title. |
 | `title` | Yes | Book title. |

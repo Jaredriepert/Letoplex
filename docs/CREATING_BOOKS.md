@@ -9,7 +9,7 @@ The **Create** tab (next to *My Books*) is a built-in editor for making branchin
 3. If the pictures are larger than phones need, you'll be offered **Optimise for phones**. It shrinks them to phone size (about 1080×1920) as WebP, which keeps books small enough to fit on readers' phones. Choose *Keep originals* to skip this.
 4. Add branches (see below), then use **Preview** to read the book exactly as readers will.
 5. **Export**:
-   - **Download .gab file**: a single file to share or back up.
+   - **Download .letoplex file**: a single file to share or back up.
    - **Share…** (phones): send it with Messages, email or AirDrop, or save it to Files.
    - **Add to my library**: read it on this device straight away.
 
@@ -59,6 +59,6 @@ From **My Books**, open a book's **⋯ → Edit in Create**. This copies it into
 - Portrait pictures suit phones best. Keep important details away from the edges if you choose *Fill the screen* in Book settings.
 - Give pages short titles; they're shown at the top of the reader.
 - The **Description** field is read aloud by screen readers and shown if a picture can't load.
-- Drafts live only on this device. Download a `.gab` now and then as a backup.
+- Drafts live only on this device. Download a `.letoplex` now and then as a backup.
 
 The file format is documented in [BOOK_FORMAT.md](BOOK_FORMAT.md).

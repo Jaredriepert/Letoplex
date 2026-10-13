@@ -8,7 +8,7 @@ import { checkSpace, ImportCancelled, savePackage } from './importer'
 
 const makeBook = (id: string, images: string[]): Book =>
   parseBook({
-    format: 'graphic-adventure-book',
+    format: 'letoplex-book',
     version: 1,
     id,
     title: id,

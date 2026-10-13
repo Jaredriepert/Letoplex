@@ -1,4 +1,4 @@
-// Reads a book package (a .gab/.zip archive or a picked folder) into a
+// Reads a book package (a .letoplex/.zip archive, an older .gab, or a picked folder) into a
 // validated Book plus lazy handles to its images. Nothing large is loaded
 // here: images are only read, one at a time, when they're saved.
 import { normalizePath, parseBook, referencedImages, type Book, type Issue } from './schema'
@@ -116,14 +116,14 @@ export const buildPackage = async (entries: Map<string, PackageFile>): Promise<I
   return { ok: true, pkg: { book, assets, totalBytes }, issues }
 }
 
-/** Reads a single .gab/.zip archive without loading it into memory. */
+/** Reads a single .letoplex/.zip (or older .gab) archive without loading it into memory. */
 export const readArchive = async (blob: Blob): Promise<ImportResult> => {
   let index
   try {
     index = await readZipIndex(blob)
   } catch (error) {
     if (error instanceof ZipError && error.message === 'Not a zip archive.') {
-      return fail("That file isn't a book package. Choose a .gab or .zip file that contains book.json.")
+      return fail("That file isn't a book package. Choose a .letoplex or .zip file that contains book.json.")
     }
     return fail(error instanceof ZipError ? error.message : "The package couldn't be opened; the archive may be damaged.")
   }
@@ -164,7 +164,7 @@ export const readPickedFiles = async (files: File[]): Promise<ImportResult> => {
   if (!result.ok && !files.some((file) => file.webkitRelativePath)) {
     result.issues.push({
       level: 'warning',
-      message: 'Your browser did not report folder paths. Importing a .gab or .zip package is more reliable.',
+      message: 'Your browser did not report folder paths. Importing a .letoplex or .zip package is more reliable.',
     })
   }
   return result

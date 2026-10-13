@@ -7,6 +7,8 @@
 import type { Book } from '../book/schema'
 import { DRAFT_KEY_PREFIX, type Draft } from '../editor/draft'
 
+// Kept from before the rename to Letoplex: changing it would strand every
+// reader's existing books, progress and drafts. Nobody sees this name.
 const DB_NAME = 'graphic-adventure'
 const DB_VERSION = 2
 
@@ -267,20 +269,14 @@ export const addToInbox = (item: Omit<InboxItem, 'id'>) =>
     tx.objectStore('inbox').add(item)
   })
 
-/** Removes and returns everything waiting in the share-target inbox. */
-export const takeInbox = () =>
-  withStore(
-    'inbox',
-    'readwrite',
-    (tx) =>
-      new Promise<InboxItem[]>((resolve, reject) => {
-        const store = tx.objectStore('inbox')
-        const request = store.getAll() as IDBRequest<InboxItem[]>
-        request.onsuccess = () => {
-          // Clear inside the callback so the transaction can't auto-commit first.
-          store.clear()
-          resolve(request.result)
-        }
-        request.onerror = () => reject(request.error)
-      }),
-  )
+/**
+ * Books shared to the app that haven't been handled yet. Items stay until
+ * `removeFromInbox`, so a shared book survives the app closing mid-import.
+ */
+export const listInbox = () =>
+  withStore('inbox', 'readonly', (tx) => promisify(tx.objectStore('inbox').getAll() as IDBRequest<InboxItem[]>))
+
+export const removeFromInbox = (id: number) =>
+  withStore('inbox', 'readwrite', (tx) => {
+    tx.objectStore('inbox').delete(id)
+  })

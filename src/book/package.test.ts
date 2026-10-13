@@ -7,15 +7,15 @@ import { buildPackage, readArchive, readPickedFiles } from './package'
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
 
 const bookJson = (pages = [{ id: 'a', image: 'pages/a.png', directions: {} }]) =>
-  JSON.stringify({ format: 'graphic-adventure-book', version: 1, title: 'Zip Book', startPageId: 'a', chapters: [{ id: 'c', title: 'C', pages }] })
+  JSON.stringify({ format: 'letoplex-book', version: 1, title: 'Zip Book', startPageId: 'a', chapters: [{ id: 'c', title: 'C', pages }] })
 
 const zipBlob = (files: Record<string, Uint8Array>) => new Blob([zipSync(files)])
 
 const messages = (result: Awaited<ReturnType<typeof buildPackage>>) => result.issues.map((issue) => issue.message)
 
 describe('readArchive', () => {
-  it('imports the generated Mosslight .gab fixture end to end', async () => {
-    const bytes = readFileSync(join(__dirname, '../../import-test-books/mosslight-mystery.gab'))
+  it('imports the generated Mosslight .letoplex fixture end to end', async () => {
+    const bytes = readFileSync(join(__dirname, '../../import-test-books/mosslight-mystery.letoplex'))
     const result = await readArchive(new Blob([bytes]))
     expect(result.ok).toBe(true)
     if (!result.ok) return
@@ -93,6 +93,7 @@ describe('readPickedFiles', () => {
   })
 
   it('treats a single non-json file as an archive', async () => {
+    // An older .gab file (from before the rename) is just as valid.
     const result = await readPickedFiles([new File([zipSync({ 'book.json': strToU8(bookJson()), 'pages/a.png': PNG })], 'b.gab')])
     expect(result.ok).toBe(true)
   })

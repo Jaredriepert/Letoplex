@@ -43,7 +43,7 @@ describe('createZip', () => {
 
   it('round-trips a book package through the importer', async () => {
     const book = {
-      format: 'graphic-adventure-book',
+      format: 'letoplex-book',
       version: 1,
       title: 'Round Trip',
       startPageId: 'a',

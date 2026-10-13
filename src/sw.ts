@@ -25,7 +25,7 @@ const receiveShare = async (request: Request) => {
     if (files.length > 0) {
       return Response.redirect(scoped('./?shared=1'), 303)
     }
-    // A shared link (e.g. to a .gab file) goes through the normal link import.
+    // A shared link (e.g. to a .letoplex file) goes through the normal link import.
     const link = [form.get('url'), form.get('text')]
       .map((value) => (typeof value === 'string' ? value.match(/https?:\/\/\S+/)?.[0] : undefined))
       .find(Boolean)

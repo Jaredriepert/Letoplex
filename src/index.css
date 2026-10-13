@@ -1,12 +1,12 @@
 @font-face {
-  font-family: 'Bangers';
-  src: url('./assets/fonts/Bangers-Regular.ttf') format('truetype');
+  font-family: 'Special Elite';
+  src: url('./assets/fonts/SpecialElite-Regular.ttf') format('truetype');
   font-weight: 400;
   font-style: normal;
 }
 
 :root {
-  font-family: 'Bangers', 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-family: 'Special Elite', 'Trebuchet MS', 'Segoe UI', sans-serif;
   color: #2d2017;
   background: #efe1cc;
   line-height: 1.5;
@@ -31,7 +31,7 @@ body {
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
-  font-family: 'Bangers', 'Trebuchet MS', 'Segoe UI', sans-serif;
+  font-family: 'Special Elite', 'Trebuchet MS', 'Segoe UI', sans-serif;
   background:
     linear-gradient(180deg, rgba(255,255,255,0.3), rgba(120,89,58,0.06)),
     repeating-linear-gradient(

@@ -1,8 +1,13 @@
 // Canonical book model (schema v1) and the parser that turns untrusted
 // book.json content into it. See docs/BOOK_FORMAT.md for the file format.
 
-export const BOOK_FORMAT = 'graphic-adventure-book'
+export const BOOK_FORMAT = 'letoplex-book'
+/** Format markers from before the app was renamed to Letoplex; still read. */
+export const LEGACY_BOOK_FORMATS = ['graphic-adventure-book']
 export const BOOK_SCHEMA_VERSION = 1
+
+/** File extension for book packages (a zip archive). Older `.gab` files still import. */
+export const BOOK_EXTENSION = '.letoplex'
 
 export type Direction = 'up' | 'down' | 'left' | 'right'
 export const DIRECTIONS: Direction[] = ['up', 'right', 'down', 'left']
@@ -132,7 +137,7 @@ export const parseBook = (raw: unknown): ParseResult => {
     return { book: null, issues }
   }
 
-  if (raw.format !== undefined && raw.format !== BOOK_FORMAT) {
+  if (raw.format !== undefined && raw.format !== BOOK_FORMAT && !LEGACY_BOOK_FORMATS.includes(String(raw.format))) {
     error(`Unknown book format "${String(raw.format)}".`)
     return { book: null, issues }
   }

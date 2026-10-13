@@ -1,5 +1,6 @@
 // Small per-device UI preferences. localStorage can be unavailable (private
 // mode, blocked storage), so every access is guarded and failures are ignored.
+// Pre-rename prefix, kept so existing preferences carry over.
 const PREFIX = 'graphic-adventure:'
 
 export const readFlag = (name: string) => {

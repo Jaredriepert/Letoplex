@@ -45,8 +45,9 @@ import {
   loadAllProgress,
   saveDraft,
   removeOrphanAssets,
+  listInbox,
+  removeFromInbox,
   saveProgress,
-  takeInbox,
   type Progress,
 } from './storage/db'
 
@@ -73,7 +74,7 @@ type SheetState =
 
 const LIBRARY: Route = { screen: 'library' }
 const CREATE: Route = { screen: 'create' }
-const SAMPLE_PACKAGE_URL = `${import.meta.env.BASE_URL}samples/mosslight-mystery.gab`
+const SAMPLE_PACKAGE_URL = `${import.meta.env.BASE_URL}samples/mosslight-mystery.letoplex`
 
 /** Validates a route restored from `history.state` (it survives reloads). */
 const readRoute = (state: unknown): Route | null => {
@@ -192,7 +193,7 @@ function App() {
   }, [recordVisit])
 
   useEffect(() => {
-    document.title = entry ? `${entry.book.title} · Graphic Adventure` : 'Graphic Adventure'
+    document.title = entry ? `${entry.book.title} · Letoplex` : 'Letoplex'
   }, [entry])
 
   // ---------- Drafts and preview ----------
@@ -358,9 +359,12 @@ function App() {
     }
 
     // Files shared to the installed app (Android share sheet) wait in the inbox.
+    // Each is removed only after its import has run, so closing the app
+    // part-way leaves it there for next time.
     try {
-      for (const item of await takeInbox()) {
+      for (const item of await listInbox()) {
         await runImport(() => readArchive(item.file))
+        if (item.id !== undefined) await removeFromInbox(item.id)
       }
     } catch {
       // No storage, so nothing could have been shared in.

@@ -1,10 +1,12 @@
-# Graphic Adventure App: Project Scope and Roadmap
+# Letoplex: Project Scope and Roadmap
 
 ## Purpose
 
-Graphic Adventure App is a local-first reader for illustrated, branching stories and comic-style books. A reader imports a book package from their device, chooses a chapter, and navigates page-to-page using the directions authored for that book.
+Letoplex is a local-first reader for illustrated, branching stories and comic-style books. A reader imports a book package from their device, chooses a chapter, and navigates page-to-page using the directions authored for that book.
 
-The longer-term product may include a book editor. The editor should create packages that the reader can preview and import, while remaining a distinct authoring mode rather than complicating the reading flow.
+The app also includes a book editor (the **Create** tab). It creates packages that the reader can preview and import, and stays a distinct authoring mode rather than complicating the reading flow.
+
+**Naming:** the project was originally called "Graphic Adventure". User-facing names, the `.letoplex` extension and the `letoplex-book` format marker replaced it. Two internal names deliberately keep the old spelling so existing users don't lose data: the IndexedDB database `graphic-adventure` and the localStorage prefix `graphic-adventure:`. The old `.gab` extension and `graphic-adventure-book` format marker are still accepted on import.
 
 This document is the project-level context for maintainers and AI agents. It describes the observed implementation and intended direction; roadmap items are not claims about features that already exist.
 
@@ -14,14 +16,14 @@ This document is the project-level context for maintainers and AI agents. It des
 - Keep books and reading data local to the user's device; the current product has no server or account requirement.
 - Support branching navigation rather than assuming every story is a linear sequence.
 - Make the book package understandable, portable, and suitable for large page images.
-- Preserve a warm, tactile comic-book visual identity: soft paper and ink colors, the bundled Bangers font, and no neon or glowing effects.
+- Preserve a warm, tactile comic-book visual identity: soft paper and ink colors, the bundled Special Elite font, and no neon or glowing effects.
 - Eventually let authors create, validate, preview, and export books using the same book model as the reader.
 
 ## Non-Goals and Boundaries
 
 - No cloud library, accounts, synchronization service, or backend is currently in scope.
 - The app is a React web app installable as a PWA, not a native iOS or Android application. Native packaging is a later decision, not an existing capability.
-- Do not make the reader's core flow depend on the editor. The reader only imports `.gab` packages and never needs drafts.
+- Do not make the reader's core flow depend on the editor. The reader only imports `.letoplex` packages and never needs drafts.
 - Persistence, offline install and on-demand image loading are implemented and covered by automated checks, but have **not yet passed the real-device checklist** in [docs/MOBILE_TESTING.md](docs/MOBILE_TESTING.md). Don't describe them as device-verified until that's done.
 
 ## User Experience
@@ -37,7 +39,7 @@ This document is the project-level context for maintainers and AI agents. It des
 ### Visual and interaction direction
 
 - Mobile-first, full-bleed reading surface with safe-area and viewport handling.
-- Warm paper palette and bundled Bangers typography.
+- Warm paper palette and bundled Special Elite typography.
 - Touch-friendly swipe and edge-tap controls; no visual frame around the reading image.
 - Keep authoring controls and denser editing workflows out of the reader screen.
 
@@ -48,7 +50,7 @@ The codebase is a Vite + React 19 + TypeScript PWA. [src/App.tsx](src/App.tsx) o
 Implemented in the current source:
 
 - One canonical, versioned book schema (v1), documented in [docs/BOOK_FORMAT.md](docs/BOOK_FORMAT.md), with migration of the two older JSON layouts and validation that reports every problem.
-- Import from `.gab`/`.zip` archives (primary, works on phones), folders (relative-path mapping via `webkitRelativePath`), links (`?import=` deep links ask before downloading), the Android share sheet (manifest `share_target`), and desktop "open with" (`file_handlers`). Size limits guard against huge archives.
+- Import from `.letoplex`/`.zip` archives (primary, works on phones), folders (relative-path mapping via `webkitRelativePath`), links (`?import=` deep links ask before downloading), the Android share sheet (manifest `share_target`), and desktop "open with" (`file_handlers`). Size limits guard against huge archives.
 - Streaming import: archives are read through their zip index ([src/book/zip.ts](src/book/zip.ts), zip64 supported) and images are copied into storage one at a time ([src/library/importer.ts](src/library/importer.ts)), so memory stays flat for multi-GB books. There's a progress bar with cancel, and a wake lock keeps the screen on.
 - Space check before saving ("needs X, about Y free") with *Free up space* (Storage sheet listing books by size) or *Try anyway*. Running out mid-save rolls back cleanly.
 - Each import writes under a fresh storage key and is committed atomically at the end, so a failed or cancelled replacement never damages the existing copy. Leftovers from interrupted imports are removed at startup.
@@ -72,7 +74,7 @@ Not implemented or not yet verified:
 
 The book format is a key contract shared by importing, reading, and future authoring. It should be stabilized before building substantial editor functionality.
 
-The canonical model is defined in [src/book/schema.ts](src/book/schema.ts) and documented in [docs/BOOK_FORMAT.md](docs/BOOK_FORMAT.md): `book.json` with `format: "graphic-adventure-book"`, `version: 1`, an ordered `chapters` array, and pages carrying an id, title, image path, description, position and four nullable directions. In memory, a `Book` holds ordered chapters (with page id lists) and a page record keyed by id.
+The canonical model is defined in [src/book/schema.ts](src/book/schema.ts) and documented in [docs/BOOK_FORMAT.md](docs/BOOK_FORMAT.md): `book.json` with `format: "letoplex-book"`, `version: 1`, an ordered `chapters` array, and pages carrying an id, title, image path, description, position and four nullable directions. In memory, a `Book` holds ordered chapters (with page id lists) and a page record keyed by id.
 
 `parseBook` also accepts the two pre-v1 layouts (nested chapters without a version; a flat `pages` array with `chapter` labels) and converts them with a warning. Books with a newer `version` are rejected. Don't add another format; evolve the schema by bumping `version` and adding a migration in `parseBook`.
 
@@ -93,7 +95,7 @@ Book JSON image paths should be relative to the package root. Page IDs must be u
 
 ### Import risks (resolved)
 
-- Assets are keyed by normalized package-relative path (`webkitRelativePath` for folders, archive entry names for zips). Browsers that don't expose folder paths get a warning suggesting `.gab`/`.zip`.
+- Assets are keyed by normalized package-relative path (`webkitRelativePath` for folders, archive entry names for zips). Browsers that don't expose folder paths get a warning suggesting `.letoplex`/`.zip`.
 - Images render through `<img>` elements fed by object URLs (or bundled asset URLs). CSS gradients are no longer part of the page model.
 - Object URLs are created on demand and revoked when pages scroll out of the neighbour window, covers unmount, or a book is replaced/removed.
 - Invalid JSON, missing assets, duplicate ids, broken links, unsafe paths and unsupported file types produce a listed error sheet; nothing is added to the library.
@@ -134,7 +136,7 @@ Initial authoring capabilities:
 - Preview the draft in the existing reader without publishing/exporting first.
 - Save a recoverable local draft and export a reader-compatible package.
 
-Favor a desktop-oriented grid/canvas workflow, while keeping basic navigation and forms usable on smaller screens. Do not rely on writing to arbitrary local folders: browser file-write support is inconsistent, especially on mobile. Export a `.gab` archive (the format the reader already imports); `fflate` is already a dependency.
+Favor a desktop-oriented grid/canvas workflow, while keeping basic navigation and forms usable on smaller screens. Do not rely on writing to arbitrary local folders: browser file-write support is inconsistent, especially on mobile. Export a `.letoplex` archive (the format the reader already imports); `fflate` is already a dependency.
 
 **Exit criteria:** an author can create a small branching book, pass validation, preview every route, export it, and import that export into the reader with images and links intact.
 
@@ -172,9 +174,10 @@ Favor a desktop-oriented grid/canvas workflow, while keeping basic navigation an
 - [src/library/useImages.ts](src/library/useImages.ts): neighbour-window image loading and URL revocation.
 - [src/sw.ts](src/sw.ts) and [vite.config.ts](vite.config.ts): service worker, manifest, share target, file handlers.
 - [src/data/forest-of-echoes/](src/data/forest-of-echoes/): bundled sample book (v1).
-- [import-test-books/](import-test-books/): Mosslight test package as a folder and as `mosslight-mystery.gab`.
-- [scripts/generate-fixtures.mjs](scripts/generate-fixtures.mjs): regenerates fixture images, the test `.gab`, and app icons.
-- [src/App.css](src/App.css) and [src/index.css](src/index.css): styling and Bangers font registration.
+- [import-test-books/](import-test-books/): Mosslight test package as a folder and as `mosslight-mystery.letoplex`.
+- [scripts/generate-fixtures.mjs](scripts/generate-fixtures.mjs): regenerates fixture images and the test `.letoplex`.
+- [scripts/make-icons.ps1](scripts/make-icons.ps1): rebuilds the app icons from `design/icon-source.png`.
+- [src/App.css](src/App.css) and [src/index.css](src/index.css): styling and Special Elite font registration.
 - [docs/BOOK_FORMAT.md](docs/BOOK_FORMAT.md) and [docs/MOBILE_TESTING.md](docs/MOBILE_TESTING.md): format spec and device checklist.
 
 ## Local Development and Verification

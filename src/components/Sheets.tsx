@@ -89,9 +89,9 @@ export function ImportSheet({
       <div className="sheet-body">
         <button type="button" className="primary-button wide" onClick={() => fileRef.current?.click()}>
           Choose a book file
-          <small>.gab or .zip, from Files, Downloads or Drive</small>
+          <small>.letoplex or .zip, from Files, Downloads or Drive</small>
         </button>
-        {/* No `accept` filter: iOS greys out unfamiliar extensions like .gab. */}
+        {/* No `accept` filter: iOS greys out unfamiliar extensions like .letoplex. */}
         <input ref={fileRef} type="file" hidden onChange={handlePicked} />
 
         {supportsFolderPicker() && (
@@ -118,7 +118,7 @@ export function ImportSheet({
               id="import-url"
               type="url"
               inputMode="url"
-              placeholder="https://…/my-book.gab"
+              placeholder="https://…/my-book.letoplex"
               value={url}
               onChange={(event) => setUrl(event.target.value)}
             />

@@ -908,7 +908,7 @@ button:disabled {
 .issue-tag {
   display: inline-block;
   margin-right: 8px;
-  font-family: 'Bangers', 'Trebuchet MS', sans-serif;
+  font-family: 'Special Elite', 'Trebuchet MS', sans-serif;
   letter-spacing: 0.08em;
   color: var(--rust);
 }
@@ -1075,7 +1075,7 @@ button:disabled {
   border-radius: 10px;
   background: var(--tan);
   color: var(--ink);
-  font-family: 'Bangers', 'Trebuchet MS', sans-serif;
+  font-family: 'Special Elite', 'Trebuchet MS', sans-serif;
   font-size: 1rem;
   letter-spacing: 0.05em;
   cursor: pointer;

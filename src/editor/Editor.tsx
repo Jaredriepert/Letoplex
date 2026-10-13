@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { Book, Direction } from '../book/schema'
+import { BOOK_EXTENSION, type Book, type Direction } from '../book/schema'
 import { IssueList, ProgressOverlay, Sheet, type ProgressInfo, type ToastMessage } from '../components/Sheets'
 import {
   addChapter,
@@ -52,7 +52,7 @@ type OptimisePrompt = { oversized: number; total: number; resolve: (choice: bool
 
 const canShareFiles = () => {
   try {
-    return Boolean(navigator.canShare?.({ files: [new File([''], 'book.gab', { type: 'application/zip' })] }))
+    return Boolean(navigator.canShare?.({ files: [new File([''], `book${BOOK_EXTENSION}`, { type: 'application/zip' })] }))
   } catch {
     return false
   }
@@ -636,7 +636,7 @@ export function Editor({ draftId, onBack, onPreview, onAddToLibrary, onDeleteDra
             ) : (
               <>
                 <button type="button" className="primary-button wide" onClick={() => void runExport('download')}>
-                  Download .gab file
+                  Download {BOOK_EXTENSION} file
                   <small>Share it, back it up, or import it on another device</small>
                 </button>
                 {canShareFiles() && (

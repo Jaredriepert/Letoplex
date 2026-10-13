@@ -127,7 +127,7 @@ export function Create({ onSwitchTab, onNewDraft, onCopySample, onOpenDraft, onD
 
       {drafts && drafts.length > 0 && (
         <p className="library-footnote">
-          Drafts live only on this device. Export a .gab file to back one up or move it to another device.{' '}
+          Drafts live only on this device. Export a .letoplex file to back one up or move it to another device.{' '}
           <button type="button" className="link-button" onClick={onCopySample}>
             Copy the sample to explore
           </button>

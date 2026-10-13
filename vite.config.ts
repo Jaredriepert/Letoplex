@@ -19,12 +19,12 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: false,
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,png,svg,ttf,gab}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,ttf,letoplex}'],
       },
       manifest: {
         id: './',
-        name: 'Graphic Adventure',
-        short_name: 'Adventure',
+        name: 'Letoplex',
+        short_name: 'Letoplex',
         description: 'Read illustrated, branching stories. Books stay on your device.',
         start_url: './',
         scope: './',
@@ -37,8 +37,8 @@ export default defineConfig({
           { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
           { src: 'icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-        // "Open with Graphic Adventure" for .gab files (installed app, Chromium).
-        file_handlers: [{ action: './', accept: { 'application/x-graphic-adventure-book': ['.gab'] } }],
+        // "Open with Letoplex" for book files (installed app, Chromium). .gab is the pre-rename extension.
+        file_handlers: [{ action: './', accept: { 'application/x-letoplex-book': ['.letoplex', '.gab'] } }],
         // Lets Android's share sheet send a book (or a link to one) to the app.
         share_target: {
           action: './share-target',
@@ -48,7 +48,12 @@ export default defineConfig({
             title: 'title',
             text: 'text',
             url: 'url',
-            files: [{ name: 'book', accept: ['.gab', '.zip', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream'] }],
+            files: [
+              {
+                name: 'book',
+                accept: ['.letoplex', '.gab', '.zip', 'application/x-letoplex-book', 'application/zip', 'application/x-zip-compressed', 'application/octet-stream'],
+              },
+            ],
           },
         },
       },

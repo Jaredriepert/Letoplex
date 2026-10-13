@@ -1,7 +1,7 @@
 // Connects drafts to storage: saving images, copying library books into
-// drafts, and turning drafts into packages for the library or a .gab file.
+// drafts, and turning drafts into packages for the library or a .letoplex file.
 import type { BookPackage, ImportResult, PackageFile } from '../book/package'
-import { parseBook, slugify } from '../book/schema'
+import { BOOK_EXTENSION, parseBook, slugify } from '../book/schema'
 import { createZip } from '../book/zipWriter'
 import { storedSource, type LibraryEntry } from '../library/library'
 import { deleteAsset, getAsset, listAssetPaths, putAsset, saveDraft } from '../storage/db'
@@ -135,7 +135,7 @@ export const packageDraft = async (draft: Draft): Promise<ImportResult> => {
   return { ok: true, pkg, issues }
 }
 
-/** Builds the .gab file for a draft. */
+/** Builds the .letoplex file for a draft. */
 export const exportDraft = async (draft: Draft, options: { onProgress?: Progress; signal?: AbortSignal } = {}) => {
   const result = await packageDraft(draft)
   if (!result.ok) {
@@ -146,6 +146,6 @@ export const exportDraft = async (draft: Draft, options: { onProgress?: Progress
     files.push({ path, data: await file.read() })
   }
   const blob = await createZip(files, options)
-  const fileName = `${slugify(draft.book.title || 'book')}.gab`
+  const fileName = `${slugify(draft.book.title || 'book')}${BOOK_EXTENSION}`
   return { ok: true as const, blob, fileName, issues: result.issues }
 }

@@ -10,7 +10,7 @@ const page = (id: string, directions: Record<string, string | null> = {}) => ({
 })
 
 const v1 = (overrides: Record<string, unknown> = {}) => ({
-  format: 'graphic-adventure-book',
+  format: 'letoplex-book',
   version: 1,
   title: 'Test Book',
   startPageId: 'a',
@@ -115,6 +115,12 @@ describe('parseBook', () => {
     expect(errors([])).toEqual(['book.json must contain a JSON object.'])
     expect(errors({ title: 'Nothing' })).toEqual(['book.json needs a "chapters" array.'])
     expect(errors(v1({ chapters: [] }))).toEqual(['The book has no pages.'])
+  })
+
+  it('still reads books made before the rename to Letoplex', () => {
+    const { book, issues } = parseBook(v1({ format: 'graphic-adventure-book' }))
+    expect(book).not.toBeNull()
+    expect(issues).toEqual([])
   })
 
   it('rejects an unknown format marker', () => {

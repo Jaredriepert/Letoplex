@@ -278,7 +278,7 @@ const paintPage = (page) => {
 const forest = {
   dir: join(root, 'src', 'data', 'forest-of-echoes'),
   book: {
-    format: 'graphic-adventure-book',
+    format: 'letoplex-book',
     version: 1,
     id: 'forest-of-echoes',
     title: 'Forest of Echoes',
@@ -315,7 +315,7 @@ const forest = {
 const mosslight = {
   dir: join(root, 'import-test-books', 'mosslight-mystery'),
   book: {
-    format: 'graphic-adventure-book',
+    format: 'letoplex-book',
     version: 1,
     id: 'mosslight-mystery',
     title: 'Mosslight Mystery',
@@ -371,9 +371,9 @@ const writeBook = ({ dir, book, pages }) => {
 writeBook(forest)
 const mossFiles = writeBook(mosslight)
 
-// Single-file package (.gab is a zip archive) for phone import testing.
+// Single-file package (.letoplex is a zip archive) for phone import testing.
 const archive = zipSync(mossFiles, { level: 0 })
-for (const target of [join(root, 'import-test-books', 'mosslight-mystery.gab'), join(root, 'public', 'samples', 'mosslight-mystery.gab')]) {
+for (const target of [join(root, 'import-test-books', 'mosslight-mystery.letoplex'), join(root, 'public', 'samples', 'mosslight-mystery.letoplex')]) {
   mkdirSync(dirname(target), { recursive: true })
   writeFileSync(target, archive)
   console.log(`wrote ${relative(root, target)}`)
